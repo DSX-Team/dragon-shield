@@ -143,9 +143,9 @@ const AdminLogin = () => {
         return;
       }
 
-      // Create first admin account
+      // Create first admin account with a standard email domain
       const { data, error } = await supabase.auth.signUp({
-        email: "admin@dragonshield.tv",
+        email: "admin@example.com",
         password: "DragonAdmin123!",
         options: {
           emailRedirectTo: `${window.location.origin}/admin`,
@@ -169,12 +169,12 @@ const AdminLogin = () => {
         }
 
         toast({
-          title: "First Admin Created",
-          description: "Default admin account created. Email: admin@dragonshield.tv, Password: DragonAdmin123!",
+          title: "First Admin Created", 
+          description: "Default admin account created. Email: admin@example.com, Password: DragonAdmin123!",
         });
 
         setLoginData({
-          email: "admin@dragonshield.tv",
+          email: "admin@example.com",
           password: "DragonAdmin123!"
         });
       }
