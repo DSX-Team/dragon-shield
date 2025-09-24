@@ -38,24 +38,51 @@ check_root() {
     fi
 }
 
-# Check system requirements
+# Check system requirements and Ubuntu compatibility
 check_requirements() {
-    log "Checking system requirements..."
+    log "Checking system requirements and Ubuntu compatibility..."
     
-    # Check for Docker
+    # Detect Ubuntu version
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [[ "$ID" == "ubuntu" ]]; then
+            UBUNTU_VERSION=$(echo $VERSION_ID | cut -d. -f1)
+            if [[ "$UBUNTU_VERSION" == "22" || "$UBUNTU_VERSION" == "24" ]]; then
+                log "Detected Ubuntu $VERSION_ID - Supported!"
+            elif [[ "$UBUNTU_VERSION" -ge "20" ]]; then
+                warn "Detected Ubuntu $VERSION_ID - Should work but not specifically tested"
+            else
+                error "Ubuntu version $VERSION_ID is not supported. Please use Ubuntu 20.04 or newer."
+            fi
+        else
+            warn "Non-Ubuntu system detected ($PRETTY_NAME). Compatibility not guaranteed."
+        fi
+    fi
+    
+    # Update package lists on Ubuntu
+    if command -v apt-get &> /dev/null; then
+        log "Updating package lists..."
+        sudo apt-get update -qq
+    fi
+    
+    # Check and install Docker if needed
     if ! command -v docker &> /dev/null; then
-        error "Docker is not installed. Please install Docker first."
+        log "Docker not found. Installing Docker..."
+        install_docker
+    else
+        log "Docker found: $(docker --version)"
     fi
     
     # Check for Docker Compose
     if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-        error "Docker Compose is not installed. Please install Docker Compose first."
+        log "Docker Compose not found. Installing Docker Compose..."
+        install_docker_compose
+    else
+        log "Docker Compose found"
     fi
     
-    # Check for Node.js (for development)
-    if ! command -v node &> /dev/null; then
-        warn "Node.js is not installed. This is only required for development."
-    fi
+    # Check system resources
+    check_system_resources
     
     log "System requirements check passed!"
 }
@@ -72,6 +99,117 @@ create_directories() {
     mkdir -p nginx/ssl
     
     log "Directory structure created!"
+}
+
+# Install Docker on Ubuntu
+install_docker() {
+    log "Installing Docker for Ubuntu..."
+    
+    # Install prerequisites
+    sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+    
+    # Add Docker GPG key
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+    
+    # Add Docker repository
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    
+    # Update and install Docker
+    sudo apt-get update -qq
+    sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+    
+    # Add user to docker group
+    sudo usermod -aG docker $USER
+    
+    # Start and enable Docker
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    
+    log "Docker installed successfully!"
+    warn "You may need to log out and back in for Docker group permissions to take effect."
+}
+
+# Install Docker Compose
+install_docker_compose() {
+    log "Installing Docker Compose..."
+    
+    # Install using apt (available in Ubuntu 20.04+)
+    sudo apt-get install -y docker-compose-plugin
+    
+    log "Docker Compose installed successfully!"
+}
+
+# Check system resources
+check_system_resources() {
+    log "Checking system resources..."
+    
+    # Check available memory (minimum 2GB recommended)
+    MEMORY_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    MEMORY_GB=$((MEMORY_KB / 1024 / 1024))
+    
+    if [ $MEMORY_GB -lt 2 ]; then
+        warn "System has ${MEMORY_GB}GB RAM. Minimum 2GB recommended for optimal performance."
+    else
+        log "Memory check passed: ${MEMORY_GB}GB RAM available"
+    fi
+    
+    # Check available disk space (minimum 10GB recommended)
+    DISK_AVAILABLE=$(df / | tail -1 | awk '{print $4}')
+    DISK_GB=$((DISK_AVAILABLE / 1024 / 1024))
+    
+    if [ $DISK_GB -lt 10 ]; then
+        warn "Available disk space: ${DISK_GB}GB. Minimum 10GB recommended."
+    else
+        log "Disk space check passed: ${DISK_GB}GB available"
+    fi
+}
+
+# Configure system optimizations for Ubuntu
+configure_system_optimizations() {
+    log "Configuring system optimizations for Ubuntu..."
+    
+    # Configure Docker logging
+    sudo mkdir -p /etc/docker
+    if [ ! -f /etc/docker/daemon.json ]; then
+        sudo tee /etc/docker/daemon.json > /dev/null << EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  },
+  "storage-driver": "overlay2"
+}
+EOF
+        sudo systemctl restart docker
+        log "Docker logging configuration applied"
+    fi
+    
+    # Configure firewall rules (UFW)
+    if command -v ufw &> /dev/null; then
+        log "Configuring firewall rules..."
+        sudo ufw --force enable
+        sudo ufw allow 22/tcp comment "SSH"
+        sudo ufw allow 80/tcp comment "HTTP"
+        sudo ufw allow 443/tcp comment "HTTPS"
+        sudo ufw allow 3000/tcp comment "Dragon Shield Frontend"
+        log "Firewall rules configured"
+    fi
+    
+    # Set up log rotation
+    sudo tee /etc/logrotate.d/dragon-shield > /dev/null << EOF
+/app/logs/*.log {
+    daily
+    missingok
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+}
+EOF
+    
+    log "System optimizations configured!"
 }
 
 # Generate secure passwords
@@ -218,6 +356,7 @@ EOF
     create_directories
     generate_passwords
     setup_environment
+    configure_system_optimizations
     setup_ssl
     init_database
     start_services

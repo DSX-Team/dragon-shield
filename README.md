@@ -46,6 +46,23 @@ Dragon Shield is designed to be fully portable and can run in multiple environme
 - Docker & Docker Compose
 - Node.js 18+ (for development)
 - PostgreSQL 15+ (for self-hosted)
+- Ubuntu 22.04+ LTS (recommended for VPS/dedicated servers)
+
+### Ubuntu Quick Install (VPS/Dedicated Servers)
+
+For Ubuntu 22.04 LTS or Ubuntu 24.04 LTS servers:
+
+```bash
+# One-line installation for Ubuntu servers
+curl -fsSL https://raw.githubusercontent.com/your-repo/dragon-shield/main/scripts/ubuntu-install.sh | bash
+
+# Then clone and setup
+git clone <YOUR_GIT_URL> /opt/dragon-shield
+cd /opt/dragon-shield
+./scripts/setup.sh
+```
+
+See [Ubuntu Deployment Guide](docs/UBUNTU_DEPLOYMENT.md) for detailed VPS deployment instructions.
 
 ### Option 1: Using Lovable (Cloud)
 1. Visit the [Lovable Project](https://lovable.dev/projects/6463820c-3d65-46af-929c-b922a4125e85)
