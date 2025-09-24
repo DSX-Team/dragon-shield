@@ -145,8 +145,8 @@ const AdminLogin = () => {
         return;
       }
 
-      // Create first admin account with a standard email domain
-      const adminEmail = "admin@example.com";
+      // Create first admin account with a real email provider
+      const adminEmail = "admin@gmail.com";
       const adminPassword = "DragonAdmin123!";
       
       console.log("Attempting signup with:", adminEmail);
