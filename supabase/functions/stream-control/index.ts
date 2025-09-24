@@ -127,14 +127,17 @@ serve(async (req) => {
         console.log(`Processing stream for channel ${channelId}, upstream URL: ${primarySource.url}`);
         
         // Check if this is a direct stream URL (.ts, .m3u, etc.) or M3U8 playlist
-        if (primarySource.url.endsWith('.ts') || primarySource.url.endsWith('.m3u')) {
-          console.log('Direct stream detected, creating M3U8 playlist');
+        const urlLower = primarySource.url.toLowerCase();
+        
+        if (urlLower.endsWith('.ts') || urlLower.includes('mpegts') || urlLower.includes('mpeg-ts')) {
+          console.log('TS/MPEGTS stream detected, creating M3U8 playlist');
           
-          // For direct streams, create a simple M3U8 playlist
+          // For TS streams, create a live M3U8 playlist
           const m3u8Content = `#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-TARGETDURATION:10
 #EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:EVENT
 #EXTINF:10.0,
 ${primarySource.url}
 #EXT-X-ENDLIST`;
@@ -149,6 +152,60 @@ ${primarySource.url}
               'Expires': '0'
             }
           });
+        }
+
+        // Handle M3U playlists by fetching and parsing them
+        if (urlLower.endsWith('.m3u') && !urlLower.endsWith('.m3u8')) {
+          console.log('M3U playlist detected, fetching and parsing');
+          
+          const m3uResponse = await fetch(primarySource.url, {
+            headers: {
+              'User-Agent': 'Dragon Shield IPTV Server/1.0'
+            }
+          });
+
+          if (!m3uResponse.ok) {
+            throw new Error(`M3U fetch error: ${m3uResponse.status}`);
+          }
+
+          const m3uContent = await m3uResponse.text();
+          
+          // Parse M3U and find the first stream URL
+          const lines = m3uContent.split('\n');
+          let firstStreamUrl = '';
+          
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (trimmedLine && !trimmedLine.startsWith('#')) {
+              firstStreamUrl = trimmedLine;
+              break;
+            }
+          }
+          
+          if (firstStreamUrl) {
+            // Convert M3U to M3U8 format with the found stream
+            const m3u8Content = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:EVENT
+#EXTINF:10.0,
+${firstStreamUrl}
+#EXT-X-ENDLIST`;
+
+            return new Response(m3u8Content, {
+              status: 200,
+              headers: {
+                ...corsHeaders,
+                'Content-Type': 'application/vnd.apple.mpegurl',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+              }
+            });
+          } else {
+            throw new Error('No valid stream URL found in M3U playlist');
+          }
         }
         
         // Handle M3U8 playlist URLs

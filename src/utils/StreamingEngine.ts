@@ -2,7 +2,7 @@
 
 export interface StreamInfo {
   url: string;
-  protocol: 'hls' | 'dash' | 'webrtc' | 'progressive' | 'rtmp';
+  protocol: 'hls' | 'dash' | 'webrtc' | 'progressive' | 'rtmp' | 'ts' | 'm3u' | 'mpegts';
   isLive: boolean;
   quality?: string;
   audioTracks?: AudioTrack[];
@@ -51,18 +51,37 @@ export class StreamingEngine {
   public detectStreamProtocol(url: string): StreamInfo['protocol'] {
     const urlLower = url.toLowerCase();
     
+    // HLS formats
     if (urlLower.includes('.m3u8') || urlLower.includes('hls')) {
       return 'hls';
     }
     
+    // M3U playlists
+    if (urlLower.includes('.m3u') && !urlLower.includes('.m3u8')) {
+      return 'm3u';
+    }
+    
+    // Transport Stream formats
+    if (urlLower.includes('.ts') || urlLower.includes('mpegts') || urlLower.includes('mpeg-ts')) {
+      return 'ts';
+    }
+    
+    // MPEG-TS specific
+    if (urlLower.includes('mpegts') || urlLower.includes('mpeg2ts')) {
+      return 'mpegts';
+    }
+    
+    // DASH
     if (urlLower.includes('.mpd') || urlLower.includes('dash')) {
       return 'dash';
     }
     
+    // WebRTC
     if (urlLower.startsWith('webrtc:') || urlLower.includes('webrtc')) {
       return 'webrtc';
     }
     
+    // RTMP
     if (urlLower.startsWith('rtmp:') || urlLower.startsWith('rtmps:')) {
       return 'rtmp';
     }
@@ -72,7 +91,7 @@ export class StreamingEngine {
 
   public analyzeStream(url: string): StreamInfo {
     const protocol = this.detectStreamProtocol(url);
-    const isLive = protocol === 'hls' || protocol === 'dash' || protocol === 'webrtc' || protocol === 'rtmp';
+    const isLive = ['hls', 'dash', 'webrtc', 'rtmp', 'ts', 'm3u', 'mpegts'].includes(protocol);
     
     return {
       url,
@@ -94,6 +113,11 @@ export class StreamingEngine {
         return this.setupDASHPlayer(video, streamInfo);
       case 'webrtc':
         return this.setupWebRTCPlayer(video, streamInfo);
+      case 'ts':
+      case 'mpegts':
+        return this.setupTSPlayer(video, streamInfo);
+      case 'm3u':
+        return this.setupM3UPlayer(video, streamInfo);
       case 'progressive':
         return this.setupProgressivePlayer(video, streamInfo);
       default:
@@ -203,6 +227,90 @@ export class StreamingEngine {
     return pc;
   }
 
+  private async setupTSPlayer(video: HTMLVideoElement, streamInfo: StreamInfo) {
+    console.log('Setting up TS/MPEGTS player');
+    
+    // For TS streams, we can try HLS.js if available, or fall back to native
+    if (this.hlsSupported) {
+      // Native support - set directly
+      video.src = streamInfo.url;
+      return null;
+    } else {
+      // Try HLS.js for better TS handling
+      try {
+        const Hls = (await import('hls.js')).default;
+        
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 5,
+            maxBufferLength: 15,
+            debug: process.env.NODE_ENV === 'development'
+          });
+          
+          // Create a simple M3U8 wrapper for the TS stream
+          const m3u8Url = streamInfo.url.replace(/\.(ts|mpegts)$/i, '.m3u8');
+          
+          hls.loadSource(m3u8Url);
+          hls.attachMedia(video);
+          
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.warn('HLS TS error, falling back to native:', data);
+            if (data.fatal) {
+              // Fallback to native
+              video.src = streamInfo.url;
+            }
+          });
+          
+          return hls;
+        }
+      } catch (error) {
+        console.log('HLS.js not available for TS, using native');
+      }
+      
+      // Fallback to native
+      video.src = streamInfo.url;
+      return null;
+    }
+  }
+
+  private async setupM3UPlayer(video: HTMLVideoElement, streamInfo: StreamInfo) {
+    console.log('Setting up M3U playlist player');
+    
+    // M3U files are playlists, we need to fetch and parse them
+    try {
+      const response = await fetch(streamInfo.url);
+      const m3uContent = await response.text();
+      
+      // Parse M3U content and find the first stream URL
+      const lines = m3uContent.split('\n');
+      let streamUrl = '';
+      
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        if (trimmedLine && !trimmedLine.startsWith('#')) {
+          streamUrl = trimmedLine;
+          break;
+        }
+      }
+      
+      if (streamUrl) {
+        console.log('Found stream URL in M3U:', streamUrl);
+        // Recursively analyze and setup the actual stream
+        const actualStreamInfo = this.analyzeStream(streamUrl);
+        return this.setupPlayer(video, actualStreamInfo);
+      } else {
+        throw new Error('No valid stream URL found in M3U playlist');
+      }
+    } catch (error) {
+      console.error('Failed to parse M3U playlist:', error);
+      // Fallback: try to play the M3U directly
+      video.src = streamInfo.url;
+      return null;
+    }
+  }
+
   private setupProgressivePlayer(video: HTMLVideoElement, streamInfo: StreamInfo) {
     console.log('Using progressive download');
     video.src = streamInfo.url;
@@ -214,17 +322,20 @@ export class StreamingEngine {
     
     switch (protocol) {
       case 'hls':
-        if (player.destroy) {
+      case 'ts':
+      case 'mpegts':
+      case 'm3u':
+        if (player && player.destroy) {
           player.destroy();
         }
         break;
       case 'dash':
-        if (player.destroy) {
+        if (player && player.destroy) {
           player.destroy();
         }
         break;
       case 'webrtc':
-        if (player.close) {
+        if (player && player.close) {
           player.close();
         }
         break;
