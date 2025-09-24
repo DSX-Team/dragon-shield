@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Tv, Package, CreditCard, Server, Video } from "lucide-react";
+import { Users, Tv, Package, CreditCard, Server, Video, Settings } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { UserManagement } from "@/components/admin/UserManagement";
@@ -14,6 +14,7 @@ import { PackageManagement } from "@/components/admin/PackageManagement";
 import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
 import ServerManagement from "@/components/admin/ServerManagement";
 import VideoProcessing from "@/components/admin/VideoProcessing";
+import SettingsManagement from "@/components/admin/SettingsManagement";
 
 interface Profile {
   id: string;
@@ -281,7 +282,7 @@ const Admin = () => {
 
             {/* Main Content Tabs */}
             <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
+              <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
                 <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Users className="w-4 h-4 mr-2" />
                   Users
@@ -305,6 +306,10 @@ const Admin = () => {
                 <TabsTrigger value="video" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Video className="w-4 h-4 mr-2" />
                   Video Processing
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
                 </TabsTrigger>
               </TabsList>
 
@@ -330,6 +335,10 @@ const Admin = () => {
 
               <TabsContent value="video">
                 <VideoProcessing />
+              </TabsContent>
+
+              <TabsContent value="settings">
+                <SettingsManagement />
               </TabsContent>
             </Tabs>
 
