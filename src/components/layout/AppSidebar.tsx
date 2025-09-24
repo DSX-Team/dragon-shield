@@ -40,6 +40,7 @@ const managementItems = [
   { title: "Users", url: "/admin?tab=users", icon: Users },
   { title: "Channels", url: "/admin?tab=channels", icon: Tv },
   { title: "Packages", url: "/admin?tab=packages", icon: Package },
+  { title: "Servers", url: "/admin?tab=servers", icon: Server },
   { title: "Subscriptions", url: "/admin?tab=subscriptions", icon: CreditCard },
 ];
 

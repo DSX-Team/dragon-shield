@@ -273,6 +273,87 @@ export type Database = {
           },
         ]
       }
+      streaming_servers: {
+        Row: {
+          active: boolean
+          bandwidth_in: number | null
+          bandwidth_out: number | null
+          config: Json | null
+          cpu_usage: number | null
+          created_at: string
+          current_clients: number
+          disk_usage: number | null
+          hostname: string
+          id: string
+          ip_address: unknown
+          last_ping: string | null
+          max_clients: number
+          memory_usage: number | null
+          name: string
+          notes: string | null
+          os_version: string
+          port: number
+          ssh_key: string | null
+          ssh_password: string | null
+          ssh_port: number
+          ssh_username: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          bandwidth_in?: number | null
+          bandwidth_out?: number | null
+          config?: Json | null
+          cpu_usage?: number | null
+          created_at?: string
+          current_clients?: number
+          disk_usage?: number | null
+          hostname: string
+          id?: string
+          ip_address: unknown
+          last_ping?: string | null
+          max_clients?: number
+          memory_usage?: number | null
+          name: string
+          notes?: string | null
+          os_version: string
+          port?: number
+          ssh_key?: string | null
+          ssh_password?: string | null
+          ssh_port?: number
+          ssh_username?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          bandwidth_in?: number | null
+          bandwidth_out?: number | null
+          config?: Json | null
+          cpu_usage?: number | null
+          created_at?: string
+          current_clients?: number
+          disk_usage?: number | null
+          hostname?: string
+          id?: string
+          ip_address?: unknown
+          last_ping?: string | null
+          max_clients?: number
+          memory_usage?: number | null
+          name?: string
+          notes?: string | null
+          os_version?: string
+          port?: number
+          ssh_key?: string | null
+          ssh_password?: string | null
+          ssh_port?: number
+          ssh_username?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       streams: {
         Row: {
           channel_id: string
@@ -317,6 +398,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_streams_edge_server"
+            columns: ["edge_server_id"]
+            isOneToOne: false
+            referencedRelation: "streaming_servers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "streams_channel_id_fkey"
             columns: ["channel_id"]

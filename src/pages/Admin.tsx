@@ -5,13 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Tv, Package, CreditCard } from "lucide-react";
+import { Users, Tv, Package, CreditCard, Server } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { UserManagement } from "@/components/admin/UserManagement";
 import { ChannelManagement } from "@/components/admin/ChannelManagement";
 import { PackageManagement } from "@/components/admin/PackageManagement";
 import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
+import { ServerManagement } from "@/components/admin/ServerManagement";
 
 interface Profile {
   id: string;
@@ -61,6 +62,7 @@ const Admin = () => {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [packages, setPackages] = useState<PackageData[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [servers, setServers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'users';
@@ -123,6 +125,11 @@ const Admin = () => {
         .select("*")
         .order("created_at", { ascending: false });
 
+      const { data: serversData } = await supabase
+        .from("streaming_servers")
+        .select("*")
+        .order("created_at", { ascending: false });
+
       const { data: subscriptionsData } = await supabase
         .from("subscriptions")
         .select(`
@@ -139,6 +146,7 @@ const Admin = () => {
       setUsers(usersData || []);
       setChannels(channelsData || []);
       setPackages(packagesData || []);
+      setServers(serversData || []);
 
       const enrichedSubscriptions = [];
       if (subscriptionsData) {
@@ -203,7 +211,7 @@ const Admin = () => {
 
           <div className="flex-1 p-6 space-y-6">
             {/* Stats Overview */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <Card className="bg-gradient-to-br from-xtream-blue to-xtream-blue-light text-white border-0">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-white/90">Total Users</CardTitle>
@@ -232,19 +240,6 @@ const Admin = () => {
               
               <Card className="bg-gradient-to-br from-success to-success/80 text-white border-0">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-white/90">Active Subscriptions</CardTitle>
-                  <CreditCard className="h-4 w-4 text-white/80" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{subscriptions.filter(s => s.status === 'active').length}</div>
-                  <p className="text-xs text-white/70">
-                    Active subscribers
-                  </p>
-                </CardContent>
-              </Card>
-              
-               <Card className="bg-gradient-to-br from-xtream-orange to-xtream-orange/80 text-white border-0">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-white/90">Available Packages</CardTitle>
                   <Package className="h-4 w-4 text-white/80" />
                 </CardHeader>
@@ -255,11 +250,37 @@ const Admin = () => {
                   </p>
                 </CardContent>
               </Card>
+
+              <Card className="bg-gradient-to-br from-xtream-orange to-xtream-orange/80 text-white border-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white/90">Online Servers</CardTitle>
+                  <Server className="h-4 w-4 text-white/80" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{servers.filter(s => s.status === 'online').length}</div>
+                  <p className="text-xs text-white/70">
+                    of {servers.length} total
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white/90">Active Subscriptions</CardTitle>
+                  <CreditCard className="h-4 w-4 text-white/80" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{subscriptions.filter(s => s.status === 'active').length}</div>
+                  <p className="text-xs text-white/70">
+                    Active subscribers
+                  </p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Main Content Tabs */}
             <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
+              <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
                 <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Users className="w-4 h-4 mr-2" />
                   Users
@@ -271,6 +292,10 @@ const Admin = () => {
                 <TabsTrigger value="packages" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Package className="w-4 h-4 mr-2" />
                   Packages
+                </TabsTrigger>
+                <TabsTrigger value="servers" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Server className="w-4 h-4 mr-2" />
+                  Servers
                 </TabsTrigger>
                 <TabsTrigger value="subscriptions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <CreditCard className="w-4 h-4 mr-2" />
@@ -288,6 +313,10 @@ const Admin = () => {
 
               <TabsContent value="packages">
                 <PackageManagement packages={packages} onPackagesUpdate={fetchAdminData} />
+              </TabsContent>
+
+              <TabsContent value="servers">
+                <ServerManagement servers={servers} onServersUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="subscriptions">
