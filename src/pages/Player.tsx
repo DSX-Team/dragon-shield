@@ -83,17 +83,26 @@ const Player = () => {
           console.log('Channel data:', channelData);
           console.log('Profile data:', profileData);
           console.log('User ID:', user.id);
+          console.log('Upstream sources:', channelData.upstream_sources);
           
-          // Test the stream URL accessibility
-          fetch(url, { method: 'HEAD' })
+          // Test the stream URL accessibility with full request
+          console.log('Testing stream URL accessibility...');
+          fetch(url)
             .then(response => {
               console.log('Stream URL test response:', response.status, response.statusText);
-              if (!response.ok) {
-                console.warn('Stream URL may not be accessible:', response.status);
+              console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+              if (response.ok) {
+                return response.text();
+              } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
               }
             })
+            .then(m3u8Content => {
+              console.log('M3U8 playlist content preview:', m3u8Content.substring(0, 300));
+            })
             .catch(err => {
-              console.warn('Stream URL test failed:', err.message);
+              console.error('Stream URL test failed:', err.message);
+              setError(`Stream test failed: ${err.message}`);
             });
         } else {
           console.error('No username found for user profile');

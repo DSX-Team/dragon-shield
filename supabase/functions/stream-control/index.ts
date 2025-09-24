@@ -130,17 +130,19 @@ serve(async (req) => {
         const urlLower = primarySource.url.toLowerCase();
         
         if (urlLower.endsWith('.ts') || urlLower.includes('mpegts') || urlLower.includes('mpeg-ts')) {
-          console.log('TS/MPEGTS stream detected, creating M3U8 playlist');
+          console.log('TS/MPEGTS stream detected, creating live M3U8 playlist');
           
-          // For TS streams, create a live M3U8 playlist
+          // For TS streams, create a live M3U8 playlist (live stream format)
           const m3u8Content = `#EXTM3U
 #EXT-X-VERSION:3
-#EXT-X-TARGETDURATION:10
-#EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-PLAYLIST-TYPE:EVENT
-#EXTINF:10.0,
+#EXT-X-TARGETDURATION:60
+#EXT-X-MEDIA-SEQUENCE:1
+#EXTINF:30.0,
 ${primarySource.url}
-#EXT-X-ENDLIST`;
+#EXTINF:30.0,
+${primarySource.url}
+#EXTINF:30.0,
+${primarySource.url}`;
 
           return new Response(m3u8Content, {
             status: 200,
@@ -183,15 +185,17 @@ ${primarySource.url}
           }
           
           if (firstStreamUrl) {
-            // Convert M3U to M3U8 format with the found stream
+            // Convert M3U to M3U8 format with the found stream (live format)
             const m3u8Content = `#EXTM3U
 #EXT-X-VERSION:3
-#EXT-X-TARGETDURATION:10
-#EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-PLAYLIST-TYPE:EVENT
-#EXTINF:10.0,
+#EXT-X-TARGETDURATION:60
+#EXT-X-MEDIA-SEQUENCE:1
+#EXTINF:30.0,
 ${firstStreamUrl}
-#EXT-X-ENDLIST`;
+#EXTINF:30.0,
+${firstStreamUrl}
+#EXTINF:30.0,
+${firstStreamUrl}`;
 
             return new Response(m3u8Content, {
               status: 200,
@@ -243,15 +247,18 @@ ${firstStreamUrl}
           });
         }
         
-        // Fallback: treat as direct URL and create basic playlist
-        console.log('Unknown stream type, creating basic M3U8 playlist');
+        // Fallback: treat as direct URL and create basic live playlist
+        console.log('Unknown stream type, creating basic live M3U8 playlist');
         const fallbackM3u8 = `#EXTM3U
 #EXT-X-VERSION:3
-#EXT-X-TARGETDURATION:10
-#EXT-X-MEDIA-SEQUENCE:0
-#EXTINF:10.0,
+#EXT-X-TARGETDURATION:60
+#EXT-X-MEDIA-SEQUENCE:1
+#EXTINF:30.0,
 ${primarySource.url}
-#EXT-X-ENDLIST`;
+#EXTINF:30.0,
+${primarySource.url}
+#EXTINF:30.0,
+${primarySource.url}`;
 
         return new Response(fallbackM3u8, {
           status: 200,
