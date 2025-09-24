@@ -1,18 +1,17 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Trash2, Power, PowerOff, Plus, Users, Tv, Package, CreditCard, Eye, EyeOff } from "lucide-react";
-import { StatusBadge } from "@/components/ui/status-badge";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Users, Tv, Package, CreditCard } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { UserManagement } from "@/components/admin/UserManagement";
+import { ChannelManagement } from "@/components/admin/ChannelManagement";
+import { PackageManagement } from "@/components/admin/PackageManagement";
+import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
 
 interface Profile {
   id: string;
@@ -33,13 +32,26 @@ interface Channel {
   logo_url?: string;
 }
 
+interface PackageData {
+  id: string;
+  name: string;
+  description?: string;
+  price?: number;
+  duration_days?: number;
+  concurrent_limit?: number;
+  active: boolean;
+  created_at: string;
+}
+
 interface Subscription {
   id: string;
-  profiles: { username: string; email: string };
-  packages: { name: string };
+  profiles: { username: string; email: string; id: string };
+  packages: { name: string; id: string };
   status: string;
   start_date: string;
   end_date: string;
+  user_id: string;
+  package_id: string;
 }
 
 const Admin = () => {
@@ -47,18 +59,11 @@ const Admin = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [packages, setPackages] = useState<PackageData[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddChannel, setShowAddChannel] = useState(false);
   const [searchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'users';
-  
-  const [newChannel, setNewChannel] = useState({
-    name: "",
-    category: "General",
-    upstream_url: "",
-    logo_url: ""
-  });
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -113,20 +118,27 @@ const Admin = () => {
         .select("*")
         .order("created_at", { ascending: false });
 
+      const { data: packagesData } = await supabase
+        .from("packages")
+        .select("*")
+        .order("created_at", { ascending: false });
+
       const { data: subscriptionsData } = await supabase
         .from("subscriptions")
         .select(`
           id,
           user_id,
+          package_id,
           status,
           start_date,
           end_date,
-          packages(name)
+          packages(name, id)
         `)
         .order("created_at", { ascending: false });
 
       setUsers(usersData || []);
       setChannels(channelsData || []);
+      setPackages(packagesData || []);
 
       const enrichedSubscriptions = [];
       if (subscriptionsData) {
@@ -139,7 +151,7 @@ const Admin = () => {
 
           enrichedSubscriptions.push({
             ...sub,
-            profiles: profileData || { username: "Unknown", email: "Unknown" }
+            profiles: profileData || { username: "Unknown", email: "Unknown", id: "unknown" }
           });
         }
       }
@@ -156,98 +168,6 @@ const Admin = () => {
     }
   };
 
-  const addChannel = async () => {
-    if (!newChannel.name || !newChannel.upstream_url) {
-      toast({
-        title: "Error",
-        description: "Channel name and upstream URL are required",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("channels")
-        .insert({
-          name: newChannel.name,
-          category: newChannel.category,
-          logo_url: newChannel.logo_url,
-          upstream_sources: [{ url: newChannel.upstream_url, type: "m3u8" }],
-          active: true
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Channel added successfully"
-      });
-
-      setChannels([data, ...channels]);
-      setShowAddChannel(false);
-      setNewChannel({ name: "", category: "General", upstream_url: "", logo_url: "" });
-    } catch (error) {
-      console.error("Error adding channel:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add channel",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const toggleChannelStatus = async (channelId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from("channels")
-        .update({ active: !currentStatus })
-        .eq("id", channelId);
-
-      if (error) throw error;
-
-      setChannels(channels.map(ch => 
-        ch.id === channelId ? { ...ch, active: !currentStatus } : ch
-      ));
-
-      toast({
-        title: "Success",
-        description: `Channel ${!currentStatus ? "enabled" : "disabled"}`
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update channel",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const deleteChannel = async (channelId: string) => {
-    try {
-      const { error } = await supabase
-        .from("channels")
-        .delete()
-        .eq("id", channelId);
-
-      if (error) throw error;
-
-      setChannels(channels.filter(ch => ch.id !== channelId));
-
-      toast({
-        title: "Success",
-        description: "Channel deleted successfully"
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete channel",
-        variant: "destructive"
-      });
-    }
-  };
 
   if (loading) {
     return (
@@ -323,15 +243,15 @@ const Admin = () => {
                 </CardContent>
               </Card>
               
-              <Card className="bg-gradient-to-br from-xtream-orange to-xtream-orange/80 text-white border-0">
+               <Card className="bg-gradient-to-br from-xtream-orange to-xtream-orange/80 text-white border-0">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium text-white/90">Available Packages</CardTitle>
                   <Package className="h-4 w-4 text-white/80" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">3</div>
+                  <div className="text-2xl font-bold">{packages.filter(p => p.active).length}</div>
                   <p className="text-xs text-white/70">
-                    Service packages
+                    of {packages.length} total
                   </p>
                 </CardContent>
               </Card>
@@ -359,221 +279,22 @@ const Admin = () => {
               </TabsList>
 
               <TabsContent value="users">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>User Management</CardTitle>
-                    <CardDescription>Manage user accounts and permissions</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Username</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Created</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {users.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.username}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>
-                              <StatusBadge variant={user.status === 'active' ? 'active' : 'inactive'}>
-                                {user.status}
-                              </StatusBadge>
-                            </TableCell>
-                            <TableCell>
-                              <StatusBadge variant={user.roles?.includes('admin') ? 'warning' : 'success'}>
-                                {user.roles?.includes('admin') ? 'Admin' : 'User'}
-                              </StatusBadge>
-                            </TableCell>
-                            <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
+                <UserManagement users={users} onUsersUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="channels">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                      <CardTitle>Channel Management</CardTitle>
-                      <CardDescription>Manage streaming channels and sources</CardDescription>
-                    </div>
-                    <Button onClick={() => setShowAddChannel(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Channel
-                    </Button>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Category</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {channels.map((channel) => (
-                          <TableRow key={channel.id}>
-                            <TableCell className="font-medium">{channel.name}</TableCell>
-                            <TableCell>{channel.category}</TableCell>
-                            <TableCell>
-                              <StatusBadge variant={channel.active ? 'active' : 'inactive'}>
-                                {channel.active ? 'Active' : 'Inactive'}
-                              </StatusBadge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => toggleChannelStatus(channel.id, channel.active)}
-                                >
-                                  {channel.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => deleteChannel(channel.id)}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
+                <ChannelManagement channels={channels} onChannelsUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="packages">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Package Management</CardTitle>
-                    <CardDescription>Manage subscription packages and pricing</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Package management interface coming soon...</p>
-                  </CardContent>
-                </Card>
+                <PackageManagement packages={packages} onPackagesUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="subscriptions">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Subscription Management</CardTitle>
-                    <CardDescription>Manage user subscriptions and billing</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>User</TableHead>
-                          <TableHead>Package</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Start Date</TableHead>
-                          <TableHead>End Date</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {subscriptions.map((subscription) => (
-                          <TableRow key={subscription.id}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{subscription.profiles.username}</div>
-                                <div className="text-sm text-muted-foreground">{subscription.profiles.email}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{subscription.packages.name}</TableCell>
-                            <TableCell>
-                              <StatusBadge variant={subscription.status === 'active' ? 'active' : 'expired'}>
-                                {subscription.status}
-                              </StatusBadge>
-                            </TableCell>
-                            <TableCell>{new Date(subscription.start_date).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(subscription.end_date).toLocaleDateString()}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </CardContent>
-                </Card>
+                <SubscriptionManagement subscriptions={subscriptions} onSubscriptionsUpdate={fetchAdminData} />
               </TabsContent>
             </Tabs>
 
-            {/* Add Channel Dialog */}
-            <Dialog open={showAddChannel} onOpenChange={setShowAddChannel}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Channel</DialogTitle>
-                  <DialogDescription>
-                    Configure a new streaming channel for your IPTV service
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Channel Name</Label>
-                    <Input
-                      id="name"
-                      placeholder="e.g. CNN HD"
-                      value={newChannel.name}
-                      onChange={(e) => setNewChannel({...newChannel, name: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      placeholder="e.g. News"
-                      value={newChannel.category}
-                      onChange={(e) => setNewChannel({...newChannel, category: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="upstream_url">Stream URL</Label>
-                    <Input
-                      id="upstream_url"
-                      placeholder="https://example.com/stream.m3u8"
-                      value={newChannel.upstream_url}
-                      onChange={(e) => setNewChannel({...newChannel, upstream_url: e.target.value})}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="logo_url">Logo URL (Optional)</Label>
-                    <Input
-                      id="logo_url"
-                      placeholder="https://example.com/logo.png"
-                      value={newChannel.logo_url}
-                      onChange={(e) => setNewChannel({...newChannel, logo_url: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setShowAddChannel(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={addChannel}>
-                    Add Channel
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         </main>
       </div>
