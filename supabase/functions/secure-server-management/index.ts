@@ -324,10 +324,27 @@ async function executeCommand(serverId: string, command: string): Promise<{ succ
       'ffmpeg -version',
       'ffmpeg -encoders',
       'ffmpeg -decoders',
-      'ps aux | grep ffmpeg'
+      'ffprobe -version',
+      'which ffmpeg',
+      'which ffprobe',
+      'ps aux | grep ffmpeg',
+      'kill -TERM',
+      'kill -9'
     ];
 
-    if (!allowedCommands.some(allowed => command.startsWith(allowed))) {
+    // Allow FFmpeg commands with specific patterns (for transcoding)
+    const ffmpegPatterns = [
+      /^ffmpeg\s+.*\s+>\s+\/tmp\/ffmpeg_\w+\.log\s+2>&1\s+&\s+echo\s+\$!$/,
+      /^ffprobe\s+-v\s+quiet\s+-print_format\s+json\s+-show_format\s+-show_streams.*$/,
+      /^ps\s+-p\s+\d+\s+-o\s+pid=$/,
+      /^kill\s+-(TERM|9)\s+\d+$/,
+      /^cat\s+\/tmp\/ffmpeg_\w+\.log$/
+    ];
+
+    const isAllowedCommand = allowedCommands.some(allowed => command.startsWith(allowed)) ||
+                           ffmpegPatterns.some(pattern => pattern.test(command));
+
+    if (!isAllowedCommand) {
       throw new Error('Command not allowed');
     }
 

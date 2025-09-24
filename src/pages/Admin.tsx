@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Tv, Package, CreditCard, Server } from "lucide-react";
+import { Users, Tv, Package, CreditCard, Server, Video } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { UserManagement } from "@/components/admin/UserManagement";
@@ -13,6 +13,7 @@ import { ChannelManagement } from "@/components/admin/ChannelManagement";
 import { PackageManagement } from "@/components/admin/PackageManagement";
 import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
 import ServerManagement from "@/components/admin/ServerManagement";
+import VideoProcessing from "@/components/admin/VideoProcessing";
 
 interface Profile {
   id: string;
@@ -280,7 +281,7 @@ const Admin = () => {
 
             {/* Main Content Tabs */}
             <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
+              <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
                 <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Users className="w-4 h-4 mr-2" />
                   Users
@@ -300,6 +301,10 @@ const Admin = () => {
                 <TabsTrigger value="subscriptions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <CreditCard className="w-4 h-4 mr-2" />
                   Subscriptions
+                </TabsTrigger>
+                <TabsTrigger value="video" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Video className="w-4 h-4 mr-2" />
+                  Video Processing
                 </TabsTrigger>
               </TabsList>
 
@@ -321,6 +326,10 @@ const Admin = () => {
 
               <TabsContent value="subscriptions">
                 <SubscriptionManagement subscriptions={subscriptions} onSubscriptionsUpdate={fetchAdminData} />
+              </TabsContent>
+
+              <TabsContent value="video">
+                <VideoProcessing />
               </TabsContent>
             </Tabs>
 
