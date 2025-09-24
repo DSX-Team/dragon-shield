@@ -129,6 +129,8 @@ const AdminLogin = () => {
     setIsLoading(true);
     setError("");
 
+    console.log("Creating first admin account with email: admin@example.com");
+
     try {
       // Check if any admin users exist
       const { data: adminCheck } = await supabase
@@ -144,9 +146,14 @@ const AdminLogin = () => {
       }
 
       // Create first admin account with a standard email domain
+      const adminEmail = "admin@example.com";
+      const adminPassword = "DragonAdmin123!";
+      
+      console.log("Attempting signup with:", adminEmail);
+      
       const { data, error } = await supabase.auth.signUp({
-        email: "admin@example.com",
-        password: "DragonAdmin123!",
+        email: adminEmail,
+        password: adminPassword,
         options: {
           emailRedirectTo: `${window.location.origin}/admin`,
           data: {
@@ -169,13 +176,13 @@ const AdminLogin = () => {
         }
 
         toast({
-          title: "First Admin Created", 
-          description: "Default admin account created. Email: admin@example.com, Password: DragonAdmin123!",
+          title: "✅ First Admin Created Successfully!", 
+          description: `Admin account ready! Email: ${adminEmail}, Password: ${adminPassword}`,
         });
 
         setLoginData({
-          email: "admin@example.com",
-          password: "DragonAdmin123!"
+          email: adminEmail,
+          password: adminPassword
         });
       }
     } catch (err) {
