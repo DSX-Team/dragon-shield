@@ -73,10 +73,31 @@ const Player = () => {
           .eq("user_id", user.id)
           .single();
 
-        if (profileData) {
-          const url = `https://ccibslznriatjflaknso.functions.supabase.co/stream-control/live/${profileData.username}/placeholder_password/${channelId}.m3u8`;
+        if (profileData && profileData.username) {
+          // Use username for authentication - the backend will validate subscription
+          const url = `https://ccibslznriatjflaknso.functions.supabase.co/stream-control/live/${profileData.username}/${profileData.username}/${channelId}.m3u8`;
           setStreamUrl(url);
           console.log('Stream URL generated:', url);
+          
+          // Add debugging for stream URL validation
+          console.log('Channel data:', channelData);
+          console.log('Profile data:', profileData);
+          console.log('User ID:', user.id);
+          
+          // Test the stream URL accessibility
+          fetch(url, { method: 'HEAD' })
+            .then(response => {
+              console.log('Stream URL test response:', response.status, response.statusText);
+              if (!response.ok) {
+                console.warn('Stream URL may not be accessible:', response.status);
+              }
+            })
+            .catch(err => {
+              console.warn('Stream URL test failed:', err.message);
+            });
+        } else {
+          console.error('No username found for user profile');
+          setError('User profile not properly configured. Please contact support.');
         }
       }
     } catch (err) {

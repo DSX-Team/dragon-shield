@@ -130,10 +130,35 @@ const WebPlayer = ({
     };
 
     const handleError = (e: Event) => {
+      const target = e.target as HTMLVideoElement;
       console.error('Video error:', e);
-      setError("Failed to load video stream");
+      console.error('Video error code:', target?.error?.code);
+      console.error('Video error message:', target?.error?.message);
+      console.error('Video src:', target?.src);
+      
+      let errorMessage = "Failed to load video stream";
+      if (target?.error) {
+        switch (target.error.code) {
+          case 1: // MEDIA_ERR_ABORTED
+            errorMessage = "Video playback was aborted";
+            break;
+          case 2: // MEDIA_ERR_NETWORK
+            errorMessage = "Network error occurred while loading video";
+            break;
+          case 3: // MEDIA_ERR_DECODE
+            errorMessage = "Video format not supported";
+            break;
+          case 4: // MEDIA_ERR_SRC_NOT_SUPPORTED
+            errorMessage = "Video source not supported or invalid";
+            break;
+          default:
+            errorMessage = target.error.message || errorMessage;
+        }
+      }
+      
+      setError(errorMessage);
       setIsConnected(false);
-      onError?.("Failed to load video stream");
+      onError?.(errorMessage);
     };
 
     const handlePlay = () => setIsPlaying(true);
