@@ -1,1 +1,7 @@
 project_id = "ccibslznriatjflaknso"
+
+[functions.xtream-api]
+verify_jwt = false
+
+[functions.stream-control]
+verify_jwt = false

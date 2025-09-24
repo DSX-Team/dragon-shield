@@ -14,7 +14,362 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          target_id: string | null
+          target_type: string | null
+          timestamp: string
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          target_id?: string | null
+          target_type?: string | null
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          target_id?: string | null
+          target_type?: string | null
+          timestamp?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      channels: {
+        Row: {
+          active: boolean | null
+          category: string | null
+          created_at: string
+          epg_id: string | null
+          id: string
+          license_info: Json | null
+          logo_url: string | null
+          name: string
+          package_ids: string[] | null
+          transcode_profiles: Json | null
+          updated_at: string
+          upstream_sources: Json
+        }
+        Insert: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string
+          epg_id?: string | null
+          id?: string
+          license_info?: Json | null
+          logo_url?: string | null
+          name: string
+          package_ids?: string[] | null
+          transcode_profiles?: Json | null
+          updated_at?: string
+          upstream_sources?: Json
+        }
+        Update: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string
+          epg_id?: string | null
+          id?: string
+          license_info?: Json | null
+          logo_url?: string | null
+          name?: string
+          package_ids?: string[] | null
+          transcode_profiles?: Json | null
+          updated_at?: string
+          upstream_sources?: Json
+        }
+        Relationships: []
+      }
+      epg: {
+        Row: {
+          category: string | null
+          channel_id: string
+          created_at: string
+          description: string | null
+          end_time: string
+          id: string
+          metadata: Json | null
+          program_id: string | null
+          rating: string | null
+          start_time: string
+          title: string
+        }
+        Insert: {
+          category?: string | null
+          channel_id: string
+          created_at?: string
+          description?: string | null
+          end_time: string
+          id?: string
+          metadata?: Json | null
+          program_id?: string | null
+          rating?: string | null
+          start_time: string
+          title: string
+        }
+        Update: {
+          category?: string | null
+          channel_id?: string
+          created_at?: string
+          description?: string | null
+          end_time?: string
+          id?: string
+          metadata?: Json | null
+          program_id?: string | null
+          rating?: string | null
+          start_time?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epg_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      packages: {
+        Row: {
+          active: boolean | null
+          bitrate_limits: Json | null
+          concurrent_limit: number | null
+          created_at: string
+          description: string | null
+          duration_days: number | null
+          features: Json | null
+          id: string
+          name: string
+          price: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          bitrate_limits?: Json | null
+          concurrent_limit?: number | null
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          features?: Json | null
+          id?: string
+          name: string
+          price?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          bitrate_limits?: Json | null
+          concurrent_limit?: number | null
+          created_at?: string
+          description?: string | null
+          duration_days?: number | null
+          features?: Json | null
+          id?: string
+          name?: string
+          price?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          last_login: string | null
+          roles: string[] | null
+          status: string | null
+          updated_at: string
+          user_id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          last_login?: string | null
+          roles?: string[] | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          last_login?: string | null
+          roles?: string[] | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      sessions: {
+        Row: {
+          bytes_transferred: number | null
+          client_ip: unknown
+          created_at: string
+          device_info: Json | null
+          end_time: string | null
+          id: string
+          last_activity: string
+          start_time: string
+          stream_id: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          bytes_transferred?: number | null
+          client_ip: unknown
+          created_at?: string
+          device_info?: Json | null
+          end_time?: string | null
+          id?: string
+          last_activity?: string
+          start_time?: string
+          stream_id?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          bytes_transferred?: number | null
+          client_ip?: unknown
+          created_at?: string
+          device_info?: Json | null
+          end_time?: string | null
+          id?: string
+          last_activity?: string
+          start_time?: string
+          stream_id?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      streams: {
+        Row: {
+          channel_id: string
+          clients_count: number | null
+          created_at: string
+          edge_server_id: string | null
+          end_timestamp: string | null
+          ffmpeg_pid: number | null
+          id: string
+          start_timestamp: string
+          state: string | null
+          stream_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id: string
+          clients_count?: number | null
+          created_at?: string
+          edge_server_id?: string | null
+          end_timestamp?: string | null
+          ffmpeg_pid?: number | null
+          id?: string
+          start_timestamp?: string
+          state?: string | null
+          stream_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string
+          clients_count?: number | null
+          created_at?: string
+          edge_server_id?: string | null
+          end_timestamp?: string | null
+          ffmpeg_pid?: number | null
+          id?: string
+          start_timestamp?: string
+          state?: string | null
+          stream_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streams_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          billing_info: Json | null
+          created_at: string
+          end_date: string
+          id: string
+          package_id: string
+          start_date: string
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_info?: Json | null
+          created_at?: string
+          end_date: string
+          id?: string
+          package_id: string
+          start_date?: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_info?: Json | null
+          created_at?: string
+          end_date?: string
+          id?: string
+          package_id?: string
+          start_date?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
