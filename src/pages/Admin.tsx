@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Users, Tv, Package, Activity, Shield, Database, Plus } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Trash2, Power, PowerOff, Plus, Users, Tv, Package, CreditCard, Eye, EyeOff } from "lucide-react";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
 interface Profile {
   id: string;
@@ -30,6 +29,8 @@ interface Channel {
   category: string;
   active: boolean;
   created_at: string;
+  upstream_sources: any;
+  logo_url?: string;
 }
 
 interface Subscription {
@@ -42,21 +43,29 @@ interface Subscription {
 }
 
 const Admin = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [users, setUsers] = useState<Profile[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddChannel, setShowAddChannel] = useState(false);
+  const [searchParams] = useSearchParams();
+  const currentTab = searchParams.get('tab') || 'users';
+  
   const [newChannel, setNewChannel] = useState({
     name: "",
-    category: "",
+    category: "General",
     upstream_url: "",
     logo_url: ""
   });
+  
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const setCurrentTab = (tab: string) => {
+    navigate(`/admin?tab=${tab}`);
+  };
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -68,7 +77,6 @@ const Admin = () => {
 
       setUser(session.user);
       
-      // Check if user is admin
       const { data: profileData, error } = await supabase
         .from("profiles")
         .select("*")
@@ -95,26 +103,17 @@ const Admin = () => {
 
   const fetchAdminData = async () => {
     try {
-      // Fetch all users
-      const { data: usersData, error: usersError } = await supabase
+      const { data: usersData } = await supabase
         .from("profiles")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (usersError) throw usersError;
-      setUsers(usersData || []);
-
-      // Fetch all channels
-      const { data: channelsData, error: channelsError } = await supabase
+      const { data: channelsData } = await supabase
         .from("channels")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (channelsError) throw channelsError;
-      setChannels(channelsData || []);
-
-      // Fetch subscriptions data
-      const { data: subscriptionsData, error: subscriptionsError } = await supabase
+      const { data: subscriptionsData } = await supabase
         .from("subscriptions")
         .select(`
           id,
@@ -126,9 +125,9 @@ const Admin = () => {
         `)
         .order("created_at", { ascending: false });
 
-      if (subscriptionsError) throw subscriptionsError;
+      setUsers(usersData || []);
+      setChannels(channelsData || []);
 
-      // Get user profiles for each subscription
       const enrichedSubscriptions = [];
       if (subscriptionsData) {
         for (const sub of subscriptionsData) {
@@ -172,7 +171,7 @@ const Admin = () => {
         .from("channels")
         .insert({
           name: newChannel.name,
-          category: newChannel.category || "General",
+          category: newChannel.category,
           logo_url: newChannel.logo_url,
           upstream_sources: [{ url: newChannel.upstream_url, type: "m3u8" }],
           active: true
@@ -189,7 +188,7 @@ const Admin = () => {
 
       setChannels([data, ...channels]);
       setShowAddChannel(false);
-      setNewChannel({ name: "", category: "", upstream_url: "", logo_url: "" });
+      setNewChannel({ name: "", category: "General", upstream_url: "", logo_url: "" });
     } catch (error) {
       console.error("Error adding channel:", error);
       toast({
@@ -218,7 +217,6 @@ const Admin = () => {
         description: `Channel ${!currentStatus ? "enabled" : "disabled"}`
       });
     } catch (error) {
-      console.error("Error updating channel:", error);
       toast({
         title: "Error",
         description: "Failed to update channel",
@@ -243,7 +241,6 @@ const Admin = () => {
         description: "Channel deleted successfully"
       });
     } catch (error) {
-      console.error("Error deleting channel:", error);
       toast({
         title: "Error",
         description: "Failed to delete channel",
@@ -252,360 +249,335 @@ const Admin = () => {
     }
   };
 
-  const stats = {
-    totalUsers: users.length,
-    activeUsers: users.filter(u => u.status === "active").length,
-    totalChannels: channels.length,
-    activeChannels: channels.filter(c => c.active).length,
-    activeSubscriptions: subscriptions.filter(s => s.status === "active").length
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Shield className="h-8 w-8 text-primary mx-auto mb-2 animate-pulse" />
-          <p className="text-muted-foreground">Loading admin panel...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground mt-2">Loading admin panel...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <Shield className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold">Admin Panel</h1>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant="secondary">Administrator</Badge>
-            <span className="text-sm text-muted-foreground">
-              {profile?.username}
-            </span>
-          </div>
-        </div>
-      </header>
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Overview */}
-        <div className="grid md:grid-cols-5 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.activeUsers} active
-              </p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Channels</CardTitle>
-              <Tv className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalChannels}</div>
-              <p className="text-xs text-muted-foreground">
-                {stats.activeChannels} active
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Subscriptions</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.activeSubscriptions}</div>
-              <p className="text-xs text-muted-foreground">
-                Active subscriptions
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">System Status</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">Online</div>
-              <p className="text-xs text-muted-foreground">
-                All services running
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Database</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">Healthy</div>
-              <p className="text-xs text-muted-foreground">
-                All connections active
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Admin Tabs */}
-        <Tabs defaultValue="users" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="channels">Channels</TabsTrigger>
-            <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="users" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>User Management</CardTitle>
-                <CardDescription>Manage user accounts and permissions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Username</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Roles</TableHead>
-                      <TableHead>Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.username}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>
-                          <Badge variant={user.status === "active" ? "default" : "destructive"}>
-                            {user.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            {user.roles?.map((role) => (
-                              <Badge key={role} variant="secondary" className="text-xs">
-                                {role}
-                              </Badge>
-                            ))}
-                          </div>
-                        </TableCell>
-                        <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="channels" className="space-y-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Channel Management</CardTitle>
-                  <CardDescription>Manage streaming channels and sources</CardDescription>
-                </div>
-                <Button 
-                  onClick={() => setShowAddChannel(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Tv className="h-4 w-4" />
-                  Add Channel
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {channels.length === 0 ? (
-                  <Alert>
-                    <AlertDescription>
-                      No channels configured yet. Add channels to enable streaming.
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Stream URL</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {channels.map((channel) => (
-                        <TableRow key={channel.id}>
-                          <TableCell className="font-medium">{channel.name}</TableCell>
-                          <TableCell>{channel.category || "General"}</TableCell>
-                          <TableCell>
-                            <Badge variant={channel.active ? "default" : "secondary"}>
-                              {channel.active ? "Active" : "Inactive"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <span className="text-xs text-muted-foreground">
-                              /live/{channel.id}.m3u8
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-2">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => toggleChannelStatus(channel.id, channel.active)}
-                              >
-                                {channel.active ? "Disable" : "Enable"}
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="destructive"
-                                onClick={() => deleteChannel(channel.id)}
-                              >
-                                Delete
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="subscriptions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Subscription Management</CardTitle>
-                <CardDescription>Manage user subscriptions and billing</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Package</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Start Date</TableHead>
-                      <TableHead>End Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {subscriptions.map((subscription) => (
-                      <TableRow key={subscription.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{subscription.profiles.username}</div>
-                            <div className="text-sm text-muted-foreground">{subscription.profiles.email}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{subscription.packages.name}</TableCell>
-                        <TableCell>
-                          <Badge variant={subscription.status === "active" ? "default" : "destructive"}>
-                            {subscription.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(subscription.start_date).toLocaleDateString()}</TableCell>
-                        <TableCell>{new Date(subscription.end_date).toLocaleDateString()}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
-        {/* Add Channel Dialog */}
-        <Dialog open={showAddChannel} onOpenChange={setShowAddChannel}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Channel</DialogTitle>
-              <DialogDescription>
-                Configure a new streaming channel for your IPTV service
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Channel Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g. CNN HD"
-                  value={newChannel.name}
-                  onChange={(e) => setNewChannel({...newChannel, name: e.target.value})}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={newChannel.category} onValueChange={(value) => setNewChannel({...newChannel, category: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="News">News</SelectItem>
-                    <SelectItem value="Sports">Sports</SelectItem>
-                    <SelectItem value="Movies">Movies</SelectItem>
-                    <SelectItem value="Entertainment">Entertainment</SelectItem>
-                    <SelectItem value="Kids">Kids</SelectItem>
-                    <SelectItem value="Documentary">Documentary</SelectItem>
-                    <SelectItem value="Music">Music</SelectItem>
-                    <SelectItem value="General">General</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="upstream_url">Stream URL *</Label>
-                <Input
-                  id="upstream_url"
-                  placeholder="https://example.com/stream.m3u8"
-                  value={newChannel.upstream_url}
-                  onChange={(e) => setNewChannel({...newChannel, upstream_url: e.target.value})}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="logo_url">Logo URL (Optional)</Label>
-                <Input
-                  id="logo_url"
-                  placeholder="https://example.com/logo.png"
-                  value={newChannel.logo_url}
-                  onChange={(e) => setNewChannel({...newChannel, logo_url: e.target.value})}
-                />
-              </div>
-              
-              <div className="flex gap-2 pt-4">
-                <Button onClick={addChannel} className="flex-1">
-                  Add Channel
-                </Button>
-                <Button variant="outline" onClick={() => setShowAddChannel(false)}>
-                  Cancel
-                </Button>
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background">
+        <AppSidebar />
+        <main className="flex-1 flex flex-col">
+          <header className="h-14 border-b border-border bg-card px-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <SidebarTrigger />
+              <div>
+                <h1 className="text-xl font-semibold text-foreground">XTREAM Admin Panel</h1>
+                <p className="text-sm text-muted-foreground">Manage your IPTV service</p>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-muted-foreground">Welcome, {profile?.username}</span>
+              <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                Dashboard
+              </Button>
+            </div>
+          </header>
+
+          <div className="flex-1 p-6 space-y-6">
+            {/* Stats Overview */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card className="bg-gradient-to-br from-xtream-blue to-xtream-blue-light text-white border-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white/90">Total Users</CardTitle>
+                  <Users className="h-4 w-4 text-white/80" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{users.length}</div>
+                  <p className="text-xs text-white/70">
+                    +{users.filter(u => u.status === 'active').length} active
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-xtream-navy to-xtream-navy-light text-white border-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white/90">Active Channels</CardTitle>
+                  <Tv className="h-4 w-4 text-white/80" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{channels.filter(c => c.active).length}</div>
+                  <p className="text-xs text-white/70">
+                    of {channels.length} total
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-success to-success/80 text-white border-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white/90">Active Subscriptions</CardTitle>
+                  <CreditCard className="h-4 w-4 text-white/80" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{subscriptions.filter(s => s.status === 'active').length}</div>
+                  <p className="text-xs text-white/70">
+                    Active subscribers
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-xtream-orange to-xtream-orange/80 text-white border-0">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-white/90">Available Packages</CardTitle>
+                  <Package className="h-4 w-4 text-white/80" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">3</div>
+                  <p className="text-xs text-white/70">
+                    Service packages
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Main Content Tabs */}
+            <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
+              <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
+                <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Users className="w-4 h-4 mr-2" />
+                  Users
+                </TabsTrigger>
+                <TabsTrigger value="channels" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Tv className="w-4 h-4 mr-2" />
+                  Channels
+                </TabsTrigger>
+                <TabsTrigger value="packages" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Package className="w-4 h-4 mr-2" />
+                  Packages
+                </TabsTrigger>
+                <TabsTrigger value="subscriptions" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Subscriptions
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="users">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>User Management</CardTitle>
+                    <CardDescription>Manage user accounts and permissions</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Username</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Role</TableHead>
+                          <TableHead>Created</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.username}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>
+                              <StatusBadge variant={user.status === 'active' ? 'active' : 'inactive'}>
+                                {user.status}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge variant={user.roles?.includes('admin') ? 'warning' : 'success'}>
+                                {user.roles?.includes('admin') ? 'Admin' : 'User'}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="channels">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle>Channel Management</CardTitle>
+                      <CardDescription>Manage streaming channels and sources</CardDescription>
+                    </div>
+                    <Button onClick={() => setShowAddChannel(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Channel
+                    </Button>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {channels.map((channel) => (
+                          <TableRow key={channel.id}>
+                            <TableCell className="font-medium">{channel.name}</TableCell>
+                            <TableCell>{channel.category}</TableCell>
+                            <TableCell>
+                              <StatusBadge variant={channel.active ? 'active' : 'inactive'}>
+                                {channel.active ? 'Active' : 'Inactive'}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => toggleChannelStatus(channel.id, channel.active)}
+                                >
+                                  {channel.active ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => deleteChannel(channel.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="packages">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Package Management</CardTitle>
+                    <CardDescription>Manage subscription packages and pricing</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">Package management interface coming soon...</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="subscriptions">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Subscription Management</CardTitle>
+                    <CardDescription>Manage user subscriptions and billing</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>User</TableHead>
+                          <TableHead>Package</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Start Date</TableHead>
+                          <TableHead>End Date</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {subscriptions.map((subscription) => (
+                          <TableRow key={subscription.id}>
+                            <TableCell>
+                              <div>
+                                <div className="font-medium">{subscription.profiles.username}</div>
+                                <div className="text-sm text-muted-foreground">{subscription.profiles.email}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{subscription.packages.name}</TableCell>
+                            <TableCell>
+                              <StatusBadge variant={subscription.status === 'active' ? 'active' : 'expired'}>
+                                {subscription.status}
+                              </StatusBadge>
+                            </TableCell>
+                            <TableCell>{new Date(subscription.start_date).toLocaleDateString()}</TableCell>
+                            <TableCell>{new Date(subscription.end_date).toLocaleDateString()}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            {/* Add Channel Dialog */}
+            <Dialog open={showAddChannel} onOpenChange={setShowAddChannel}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add New Channel</DialogTitle>
+                  <DialogDescription>
+                    Configure a new streaming channel for your IPTV service
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Channel Name</Label>
+                    <Input
+                      id="name"
+                      placeholder="e.g. CNN HD"
+                      value={newChannel.name}
+                      onChange={(e) => setNewChannel({...newChannel, name: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Input
+                      id="category"
+                      placeholder="e.g. News"
+                      value={newChannel.category}
+                      onChange={(e) => setNewChannel({...newChannel, category: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="upstream_url">Stream URL</Label>
+                    <Input
+                      id="upstream_url"
+                      placeholder="https://example.com/stream.m3u8"
+                      value={newChannel.upstream_url}
+                      onChange={(e) => setNewChannel({...newChannel, upstream_url: e.target.value})}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="logo_url">Logo URL (Optional)</Label>
+                    <Input
+                      id="logo_url"
+                      placeholder="https://example.com/logo.png"
+                      value={newChannel.logo_url}
+                      onChange={(e) => setNewChannel({...newChannel, logo_url: e.target.value})}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowAddChannel(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={addChannel}>
+                    Add Channel
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 

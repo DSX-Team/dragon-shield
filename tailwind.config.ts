@@ -57,6 +57,24 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // XTREAM Codes specific colors
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        xtream: {
+          navy: "hsl(var(--xtream-navy))",
+          "navy-light": "hsl(var(--xtream-navy-light))",
+          blue: "hsl(var(--xtream-blue))",
+          "blue-light": "hsl(var(--xtream-blue-light))",
+          orange: "hsl(var(--xtream-orange))",
+          gray: "hsl(var(--xtream-gray))",
+          "gray-light": "hsl(var(--xtream-gray-light))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
