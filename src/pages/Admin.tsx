@@ -12,7 +12,7 @@ import { UserManagement } from "@/components/admin/UserManagement";
 import { ChannelManagement } from "@/components/admin/ChannelManagement";
 import { PackageManagement } from "@/components/admin/PackageManagement";
 import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
-import { ServerManagement } from "@/components/admin/ServerManagement";
+import ServerManagement from "@/components/admin/ServerManagement";
 
 interface Profile {
   id: string;

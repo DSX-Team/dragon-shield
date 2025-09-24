@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.stream-control]
 verify_jwt = false
+
+[functions.secure-server-management]
+verify_jwt = true

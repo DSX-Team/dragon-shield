@@ -223,6 +223,50 @@ export type Database = {
         }
         Relationships: []
       }
+      server_credential_access_log: {
+        Row: {
+          access_type: string
+          accessed_by: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          ip_address: unknown | null
+          server_id: string
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          access_type: string
+          accessed_by: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          server_id: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          access_type?: string
+          accessed_by?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          ip_address?: unknown | null
+          server_id?: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "server_credential_access_log_server_id_fkey"
+            columns: ["server_id"]
+            isOneToOne: false
+            referencedRelation: "streaming_servers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           bytes_transferred: number | null
@@ -293,8 +337,7 @@ export type Database = {
           notes: string | null
           os_version: string
           port: number
-          ssh_key: string | null
-          ssh_password: string | null
+          server_key: string
           ssh_port: number
           ssh_username: string
           status: string
@@ -319,8 +362,7 @@ export type Database = {
           notes?: string | null
           os_version: string
           port?: number
-          ssh_key?: string | null
-          ssh_password?: string | null
+          server_key: string
           ssh_port?: number
           ssh_username?: string
           status?: string
@@ -345,8 +387,7 @@ export type Database = {
           notes?: string | null
           os_version?: string
           port?: number
-          ssh_key?: string | null
-          ssh_password?: string | null
+          server_key?: string
           ssh_port?: number
           ssh_username?: string
           status?: string
@@ -499,6 +540,10 @@ export type Database = {
       get_user_role: {
         Args: { user_uuid: string }
         Returns: string
+      }
+      validate_server_access: {
+        Args: { server_uuid: string }
+        Returns: boolean
       }
     }
     Enums: {
