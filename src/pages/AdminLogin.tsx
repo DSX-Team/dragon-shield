@@ -163,7 +163,8 @@ const AdminLogin = () => {
       });
 
       if (error) {
-        setError(error.message);
+        console.error("Signup error details:", error);
+        setError(`Signup failed: ${error.message}. Check Supabase auth settings.`);
       } else if (data.user) {
         // Update the profile to have admin role
         const { error: updateError } = await supabase
