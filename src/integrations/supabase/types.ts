@@ -372,9 +372,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      admin_dashboard_stats: {
+        Row: {
+          active_channels: number | null
+          active_sessions: number | null
+          active_streams: number | null
+          active_subscriptions: number | null
+          active_users: number | null
+          admin_users: number | null
+          total_users: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      create_default_admin_if_none_exists: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       get_user_role: {
         Args: { user_uuid: string }
         Returns: string
