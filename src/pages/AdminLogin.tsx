@@ -129,8 +129,6 @@ const AdminLogin = () => {
     setIsLoading(true);
     setError("");
 
-    console.log("Creating first admin account with email: admin@example.com");
-
     try {
       // Check if any admin users exist
       const { data: adminCheck } = await supabase
@@ -145,12 +143,10 @@ const AdminLogin = () => {
         return;
       }
 
-      // Create first admin account with a real email provider
-      const adminEmail = "admin@gmail.com";
+      const adminEmail = "admin@test.com";
       const adminPassword = "DragonAdmin123!";
       
-      console.log("Attempting signup with:", adminEmail);
-      
+      // Try the simple approach first - regular signup but with different email format
       const { data, error } = await supabase.auth.signUp({
         email: adminEmail,
         password: adminPassword,
@@ -163,22 +159,12 @@ const AdminLogin = () => {
       });
 
       if (error) {
-        console.error("Signup error details:", error);
-        setError(`Signup failed: ${error.message}. Check Supabase auth settings.`);
+        console.error("Signup error:", error);
+        setError(`Authentication system issue: ${error.message}. Please contact support or manually create admin in Supabase dashboard.`);
       } else if (data.user) {
-        // Update the profile to have admin role
-        const { error: updateError } = await supabase
-          .from("profiles")
-          .update({ roles: ["admin"] })
-          .eq("user_id", data.user.id);
-
-        if (updateError) {
-          console.error("Error updating admin role:", updateError);
-        }
-
         toast({
-          title: "✅ First Admin Created Successfully!", 
-          description: `Admin account ready! Email: ${adminEmail}, Password: ${adminPassword}`,
+          title: "✅ First Admin Created!", 
+          description: `Admin: ${adminEmail}, Password: ${adminPassword}`,
         });
 
         setLoginData({
@@ -186,8 +172,8 @@ const AdminLogin = () => {
           password: adminPassword
         });
       }
-    } catch (err) {
-      setError("Failed to create first admin account");
+    } catch (err: any) {
+      setError(`Failed to create admin: ${err.message}`);
       console.error("Create first admin error:", err);
     } finally {
       setIsLoading(false);
