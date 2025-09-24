@@ -70,7 +70,7 @@ const Admin = () => {
           description: "You don't have permission to access the admin panel.",
           variant: "destructive"
         });
-        navigate("/dashboard");
+        navigate("/admin/login");
         return;
       }
 

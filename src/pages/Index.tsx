@@ -54,6 +54,15 @@ const Index = () => {
               <Button size="lg" variant="outline" onClick={() => navigate("/auth")}>
                 Sign In
               </Button>
+              <Button 
+                size="lg" 
+                variant="destructive" 
+                onClick={() => navigate("/admin/login")}
+                className="mt-2"
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Admin Login
+              </Button>
             </div>
           </div>
         </div>
