@@ -7,7 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Users, Tv, Package, Activity, Shield, Database } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ArrowLeft, Users, Tv, Package, Activity, Shield, Database, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { User } from "@supabase/supabase-js";
 
@@ -44,6 +48,13 @@ const Admin = () => {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddChannel, setShowAddChannel] = useState(false);
+  const [newChannel, setNewChannel] = useState({
+    name: "",
+    category: "",
+    upstream_url: "",
+    logo_url: ""
+  });
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -141,6 +152,101 @@ const Admin = () => {
       toast({
         title: "Error",
         description: "Failed to load admin data",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const addChannel = async () => {
+    if (!newChannel.name || !newChannel.upstream_url) {
+      toast({
+        title: "Error",
+        description: "Channel name and upstream URL are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("channels")
+        .insert({
+          name: newChannel.name,
+          category: newChannel.category || "General",
+          logo_url: newChannel.logo_url,
+          upstream_sources: [{ url: newChannel.upstream_url, type: "m3u8" }],
+          active: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Channel added successfully"
+      });
+
+      setChannels([data, ...channels]);
+      setShowAddChannel(false);
+      setNewChannel({ name: "", category: "", upstream_url: "", logo_url: "" });
+    } catch (error) {
+      console.error("Error adding channel:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add channel",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const toggleChannelStatus = async (channelId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("channels")
+        .update({ active: !currentStatus })
+        .eq("id", channelId);
+
+      if (error) throw error;
+
+      setChannels(channels.map(ch => 
+        ch.id === channelId ? { ...ch, active: !currentStatus } : ch
+      ));
+
+      toast({
+        title: "Success",
+        description: `Channel ${!currentStatus ? "enabled" : "disabled"}`
+      });
+    } catch (error) {
+      console.error("Error updating channel:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update channel",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const deleteChannel = async (channelId: string) => {
+    try {
+      const { error } = await supabase
+        .from("channels")
+        .delete()
+        .eq("id", channelId);
+
+      if (error) throw error;
+
+      setChannels(channels.filter(ch => ch.id !== channelId));
+
+      toast({
+        title: "Success",
+        description: "Channel deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting channel:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete channel",
         variant: "destructive"
       });
     }
@@ -311,9 +417,18 @@ const Admin = () => {
 
           <TabsContent value="channels" className="space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle>Channel Management</CardTitle>
-                <CardDescription>Manage streaming channels and sources</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Channel Management</CardTitle>
+                  <CardDescription>Manage streaming channels and sources</CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setShowAddChannel(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Tv className="h-4 w-4" />
+                  Add Channel
+                </Button>
               </CardHeader>
               <CardContent>
                 {channels.length === 0 ? (
@@ -329,20 +444,43 @@ const Admin = () => {
                         <TableHead>Name</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHead>Stream URL</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {channels.map((channel) => (
                         <TableRow key={channel.id}>
                           <TableCell className="font-medium">{channel.name}</TableCell>
-                          <TableCell>{channel.category || "Uncategorized"}</TableCell>
+                          <TableCell>{channel.category || "General"}</TableCell>
                           <TableCell>
                             <Badge variant={channel.active ? "default" : "secondary"}>
                               {channel.active ? "Active" : "Inactive"}
                             </Badge>
                           </TableCell>
-                          <TableCell>{new Date(channel.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">
+                              /live/{channel.id}.m3u8
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => toggleChannelStatus(channel.id, channel.active)}
+                              >
+                                {channel.active ? "Disable" : "Enable"}
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => deleteChannel(channel.id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -394,6 +532,78 @@ const Admin = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Add Channel Dialog */}
+        <Dialog open={showAddChannel} onOpenChange={setShowAddChannel}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Channel</DialogTitle>
+              <DialogDescription>
+                Configure a new streaming channel for your IPTV service
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Channel Name *</Label>
+                <Input
+                  id="name"
+                  placeholder="e.g. CNN HD"
+                  value={newChannel.name}
+                  onChange={(e) => setNewChannel({...newChannel, name: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={newChannel.category} onValueChange={(value) => setNewChannel({...newChannel, category: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="News">News</SelectItem>
+                    <SelectItem value="Sports">Sports</SelectItem>
+                    <SelectItem value="Movies">Movies</SelectItem>
+                    <SelectItem value="Entertainment">Entertainment</SelectItem>
+                    <SelectItem value="Kids">Kids</SelectItem>
+                    <SelectItem value="Documentary">Documentary</SelectItem>
+                    <SelectItem value="Music">Music</SelectItem>
+                    <SelectItem value="General">General</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="upstream_url">Stream URL *</Label>
+                <Input
+                  id="upstream_url"
+                  placeholder="https://example.com/stream.m3u8"
+                  value={newChannel.upstream_url}
+                  onChange={(e) => setNewChannel({...newChannel, upstream_url: e.target.value})}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="logo_url">Logo URL (Optional)</Label>
+                <Input
+                  id="logo_url"
+                  placeholder="https://example.com/logo.png"
+                  value={newChannel.logo_url}
+                  onChange={(e) => setNewChannel({...newChannel, logo_url: e.target.value})}
+                />
+              </div>
+              
+              <div className="flex gap-2 pt-4">
+                <Button onClick={addChannel} className="flex-1">
+                  Add Channel
+                </Button>
+                <Button variant="outline" onClick={() => setShowAddChannel(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

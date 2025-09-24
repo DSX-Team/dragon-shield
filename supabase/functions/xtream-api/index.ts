@@ -111,7 +111,7 @@ serve(async (req) => {
             exp_date: "",
             is_trial: "0",
             active_cons: "0",
-            created_at: profileData.created_at,
+            created_at: Math.floor(new Date().getTime() / 1000).toString(),
             max_connections: "0",
             allowed_output_formats: ["m3u8"]
           }
@@ -155,7 +155,7 @@ serve(async (req) => {
 
         const userInfo: XtreamUser = {
           username: user.profile.username,
-          password: password,
+            password: password || "",
           message: "Welcome to Dragon Shield IPTV",
           auth: 1,
           status: "Active",
@@ -315,7 +315,7 @@ serve(async (req) => {
     console.error('Xtream API error:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
-      details: error.message 
+      details: (error as any).message || 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

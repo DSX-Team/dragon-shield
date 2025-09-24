@@ -281,7 +281,11 @@ const Dashboard = () => {
                             <h4 className="font-medium">{channel.name}</h4>
                             <p className="text-sm text-muted-foreground">{channel.category}</p>
                           </div>
-                          <Button size="sm" variant="outline">
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => navigate(`/player/${channel.id}`)}
+                          >
                             <Play className="h-4 w-4 mr-1" />
                             Watch
                           </Button>
