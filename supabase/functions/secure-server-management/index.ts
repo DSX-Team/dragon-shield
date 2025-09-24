@@ -320,7 +320,11 @@ async function executeCommand(serverId: string, command: string): Promise<{ succ
       'free -m',
       'uptime',
       'ps aux | grep nginx',
-      'netstat -tlnp'
+      'netstat -tlnp',
+      'ffmpeg -version',
+      'ffmpeg -encoders',
+      'ffmpeg -decoders',
+      'ps aux | grep ffmpeg'
     ];
 
     if (!allowedCommands.some(allowed => command.startsWith(allowed))) {
