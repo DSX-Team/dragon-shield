@@ -479,6 +479,23 @@ export type Database = {
           total_users: number
         }[]
       }
+      get_available_servers: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          current_clients: number
+          load_percentage: number
+          max_clients: number
+          server_id: string
+        }[]
+      }
+      get_server_connection_details: {
+        Args: { server_uuid: string }
+        Returns: {
+          hostname: string
+          ip_address: unknown
+          port: number
+        }[]
+      }
       get_user_role: {
         Args: { user_uuid: string }
         Returns: string
