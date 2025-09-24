@@ -1,11 +1,12 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Play, Pause, Volume2, VolumeX, Maximize2, Minimize2 } from "lucide-react";
+import { ArrowLeft, Signal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import WebPlayer from "@/components/player/WebPlayer";
 import type { User } from "@supabase/supabase-js";
 
 interface Channel {
@@ -21,11 +22,8 @@ const Player = () => {
   const [user, setUser] = useState<User | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState("");
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [streamUrl, setStreamUrl] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -67,22 +65,18 @@ const Player = () => {
       setChannel(channelData);
       setLoading(false);
 
-      // Initialize video player
-      if (videoRef.current) {
-        const video = videoRef.current;
-        
-        // Get user profile for authentication
+      // Generate stream URL
+      if (user) {
         const { data: profileData } = await supabase
           .from("profiles")
           .select("username")
-          .eq("user_id", user?.id)
+          .eq("user_id", user.id)
           .single();
 
         if (profileData) {
-          const streamUrl = `https://ccibslznriatjflaknso.functions.supabase.co/stream-control/live/${profileData.username}/placeholder_password/${channelId}.m3u8`;
-          
-          video.src = streamUrl;
-          video.load();
+          const url = `https://ccibslznriatjflaknso.functions.supabase.co/stream-control/live/${profileData.username}/placeholder_password/${channelId}.m3u8`;
+          setStreamUrl(url);
+          console.log('Stream URL generated:', url);
         }
       }
     } catch (err) {
@@ -92,40 +86,34 @@ const Player = () => {
     }
   };
 
-  const togglePlay = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
+  const handleStreamLoad = () => {
+    console.log('Stream loaded successfully');
+    toast({
+      title: "Stream Connected",
+      description: "Now streaming live content",
+    });
   };
 
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
+  const handleStreamError = (error: string) => {
+    console.error('Stream error:', error);
+    setError(error);
+    toast({
+      title: "Stream Error",
+      description: "Unable to load the video stream. Please try again.",
+      variant: "destructive"
+    });
   };
 
-  const toggleFullscreen = () => {
-    if (videoRef.current) {
-      if (isFullscreen) {
-        document.exitFullscreen();
-      } else {
-        videoRef.current.requestFullscreen();
-      }
-      setIsFullscreen(!isFullscreen);
-    }
+  const handleTimeUpdate = (currentTime: number, duration: number) => {
+    // Handle time updates if needed for analytics
+    console.log('Stream time:', currentTime, duration);
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <Play className="h-8 w-8 text-primary mx-auto mb-2 animate-pulse" />
+          <Signal className="h-8 w-8 text-primary mx-auto mb-2 animate-pulse" />
           <p className="text-muted-foreground">Loading channel...</p>
         </div>
       </div>
@@ -174,72 +162,37 @@ const Player = () => {
         </div>
       </header>
 
-      {/* Video Player */}
+      {/* Enhanced Video Player */}
       <div className="relative w-full h-screen pt-16">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-contain"
-          controls={false}
-          autoPlay
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onError={(e) => {
-            console.error("Video error:", e);
-            setError("Failed to load stream");
-            toast({
-              title: "Stream Error",
-              description: "Unable to load the video stream. Please try again.",
-              variant: "destructive"
-            });
-          }}
-        />
-
-        {/* Custom Controls Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={togglePlay}
-                className="text-white hover:bg-white/20"
-              >
-                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-              </Button>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleMute}
-                className="text-white hover:bg-white/20"
-              >
-                {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-              </Button>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <span className="text-white text-sm">{channel?.name}</span>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleFullscreen}
-                className="text-white hover:bg-white/20"
-              >
-                {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
-              </Button>
+        {streamUrl ? (
+          <WebPlayer
+            src={streamUrl}
+            title={channel?.name}
+            poster={channel?.logo_url}
+            autoplay={true}
+            className="w-full h-full"
+            onLoad={handleStreamLoad}
+            onError={handleStreamError}
+            onTimeUpdate={handleTimeUpdate}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-black">
+            <div className="text-center text-white">
+              <Signal className="h-12 w-12 mx-auto mb-4 animate-pulse" />
+              <p className="text-lg mb-2">Preparing stream...</p>
+              <p className="text-sm text-white/70">Setting up connection to {channel?.name}</p>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Loading/Error Overlay */}
+        {/* Error Overlay */}
         {error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-50">
             <Card>
               <CardContent className="p-6 text-center">
                 <p className="text-red-600 mb-4">{error}</p>
                 <Button onClick={loadChannel}>
-                  Retry
+                  Retry Connection
                 </Button>
               </CardContent>
             </Card>

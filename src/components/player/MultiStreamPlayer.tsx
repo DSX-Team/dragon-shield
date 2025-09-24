@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import WebPlayer from "./WebPlayer";
+import StreamTester from "./StreamTester";
 import { 
   Grid3X3, 
   Grid2X2, 
@@ -18,9 +19,13 @@ import {
   Monitor,
   Tv,
   Smartphone,
-  Cast
+  Cast,
+  TestTube,
+  Wifi,
+  Signal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import StreamingEngine, { StreamInfo } from "@/utils/StreamingEngine";
 
 interface StreamSource {
   id: string;
@@ -50,8 +55,13 @@ const MultiStreamPlayer = ({
   const [globalVolume, setGlobalVolume] = useState(0.8);
   const [isMuted, setIsMuted] = useState(false);
   const [outputDevice, setOutputDevice] = useState("default");
+  const [streamingCapabilities, setStreamingCapabilities] = useState<any>(null);
 
   useEffect(() => {
+    // Initialize streaming capabilities
+    const engine = StreamingEngine.getInstance();
+    setStreamingCapabilities(engine.getCapabilities());
+    
     // Initialize with first few streams based on layout
     const maxStreams = layout === "1x1" ? 1 : layout === "2x2" ? 4 : 9;
     setSelectedStreams(streams.slice(0, maxStreams));
@@ -155,11 +165,15 @@ const MultiStreamPlayer = ({
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="layout" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="layout">Layout</TabsTrigger>
               <TabsTrigger value="streams">Streams</TabsTrigger>
               <TabsTrigger value="audio">Audio</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
+              <TabsTrigger value="testing">
+                <TestTube className="h-4 w-4 mr-1" />
+                Test
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="layout" className="space-y-4">
@@ -305,7 +319,31 @@ const MultiStreamPlayer = ({
                   <Label>Hardware Acceleration</Label>
                   <Switch defaultChecked />
                 </div>
+
+                {streamingCapabilities && (
+                  <div className="space-y-2">
+                    <Label>Streaming Capabilities</Label>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant={streamingCapabilities.hls ? "default" : "secondary"}>
+                        HLS {streamingCapabilities.hls ? "✓" : "✗"}
+                      </Badge>
+                      <Badge variant={streamingCapabilities.dash ? "default" : "secondary"}>
+                        DASH {streamingCapabilities.dash ? "✓" : "✗"}
+                      </Badge>
+                      <Badge variant={streamingCapabilities.webrtc ? "default" : "secondary"}>
+                        WebRTC {streamingCapabilities.webrtc ? "✓" : "✗"}
+                      </Badge>
+                      <Badge variant={streamingCapabilities.mse ? "default" : "secondary"}>
+                        MSE {streamingCapabilities.mse ? "✓" : "✗"}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
               </div>
+            </TabsContent>
+
+            <TabsContent value="testing">
+              <StreamTester />
             </TabsContent>
           </Tabs>
         </CardContent>

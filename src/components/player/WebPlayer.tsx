@@ -14,9 +14,13 @@ import {
   RotateCw,
   Monitor,
   Smartphone,
-  Tv
+  Tv,
+  Wifi,
+  WifiOff,
+  Signal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import StreamingEngine, { StreamInfo } from "@/utils/StreamingEngine";
 
 interface WebPlayerProps {
   src: string;
@@ -51,33 +55,106 @@ const WebPlayer = ({
   const [showControls, setShowControls] = useState(true);
   const [quality, setQuality] = useState("auto");
   const [deviceType, setDeviceType] = useState<"desktop" | "mobile" | "tv">("desktop");
+  const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
+  const [player, setPlayer] = useState<any>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [bufferHealth, setBufferHealth] = useState(0);
 
+  // Initialize streaming engine
+  useEffect(() => {
+    if (!src) return;
+
+    const engine = StreamingEngine.getInstance();
+    const info = engine.analyzeStream(src);
+    setStreamInfo(info);
+    console.log('Stream analysis:', info);
+  }, [src]);
+
+  // Setup player when stream info is available
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !streamInfo) return;
+
+    const setupPlayer = async () => {
+      try {
+        setError(null);
+        setIsConnected(false);
+        
+        const engine = StreamingEngine.getInstance();
+        const playerInstance = await engine.setupPlayer(video, streamInfo);
+        setPlayer(playerInstance);
+        setIsConnected(true);
+        
+        console.log('Player setup complete for:', streamInfo.protocol);
+      } catch (err) {
+        console.error('Failed to setup player:', err);
+        setError(err instanceof Error ? err.message : 'Failed to setup player');
+        onError?.(err instanceof Error ? err.message : 'Failed to setup player');
+      }
+    };
+
+    setupPlayer();
+
+    // Cleanup function
+    return () => {
+      if (player && streamInfo) {
+        const engine = StreamingEngine.getInstance();
+        engine.cleanup(player, streamInfo.protocol);
+      }
+    };
+  }, [streamInfo]);
+
+  // Standard video event handlers
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
+      setIsConnected(true);
       onLoad?.();
     };
 
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       onTimeUpdate?.(video.currentTime, video.duration);
+      
+      // Calculate buffer health for live streams
+      if (streamInfo?.isLive && video.buffered.length > 0) {
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        const currentTime = video.currentTime;
+        const bufferAhead = bufferedEnd - currentTime;
+        setBufferHealth(Math.min(bufferAhead / 10, 1)); // 10 seconds = 100%
+      }
     };
 
-    const handleError = () => {
+    const handleError = (e: Event) => {
+      console.error('Video error:', e);
+      setError("Failed to load video stream");
+      setIsConnected(false);
       onError?.("Failed to load video stream");
     };
 
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
+    
+    const handleWaiting = () => {
+      console.log('Video waiting for data');
+    };
+    
+    const handleCanPlay = () => {
+      console.log('Video can play');
+      setError(null);
+    };
 
     video.addEventListener("loadedmetadata", handleLoadedMetadata);
     video.addEventListener("timeupdate", handleTimeUpdate);
     video.addEventListener("error", handleError);
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
+    video.addEventListener("waiting", handleWaiting);
+    video.addEventListener("canplay", handleCanPlay);
 
     return () => {
       video.removeEventListener("loadedmetadata", handleLoadedMetadata);
@@ -85,8 +162,10 @@ const WebPlayer = ({
       video.removeEventListener("error", handleError);
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
+      video.removeEventListener("waiting", handleWaiting);
+      video.removeEventListener("canplay", handleCanPlay);
     };
-  }, [onLoad, onError, onTimeUpdate]);
+  }, [onLoad, onError, onTimeUpdate, streamInfo]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -193,17 +272,60 @@ const WebPlayer = ({
           </div>
         )}
 
+        {/* Connection Status */}
+        {src && !isConnected && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="text-center text-white">
+              <Signal className="h-8 w-8 mx-auto mb-2 animate-pulse" />
+              <p>Connecting to stream...</p>
+              {streamInfo && (
+                <p className="text-sm text-white/70 mt-1">
+                  Protocol: {streamInfo.protocol.toUpperCase()}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Error Overlay */}
+        {error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+            <div className="text-center text-white">
+              <WifiOff className="h-8 w-8 mx-auto mb-2 text-red-400" />
+              <p className="text-red-400">Connection Failed</p>
+              <p className="text-sm text-white/70 mt-1">{error}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={() => window.location.reload()}
+              >
+                Retry
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Title Overlay */}
         {title && (
           <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/60 to-transparent p-4">
             <h3 className="text-white font-semibold">{title}</h3>
             <div className="flex items-center space-x-2 mt-1">
-              <Badge variant="secondary" className="bg-primary text-primary-foreground">
-                LIVE
-              </Badge>
+              {streamInfo?.isLive && (
+                <Badge variant="secondary" className="bg-red-600 text-white">
+                  <div className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse" />
+                  LIVE
+                </Badge>
+              )}
               <Badge variant="outline" className="text-white border-white/20">
-                HD
+                {streamInfo?.protocol.toUpperCase() || 'HD'}
               </Badge>
+              {isConnected && (
+                <Badge variant="outline" className="text-white border-green-500/50">
+                  <Wifi className="h-3 w-3 mr-1" />
+                  Connected
+                </Badge>
+              )}
             </div>
           </div>
         )}
@@ -290,9 +412,26 @@ const WebPlayer = ({
                 </div>
 
                 {/* Quality Badge */}
-                <Badge variant="outline" className="text-white border-white/20 text-xs">
+                 <Badge variant="outline" className="text-white border-white/20 text-xs">
                   {quality.toUpperCase()}
                 </Badge>
+
+                {/* Buffer Health Indicator for Live Streams */}
+                {streamInfo?.isLive && (
+                  <div className="flex items-center space-x-1">
+                    <div className="w-16 h-1 bg-white/20 rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-300",
+                          bufferHealth > 0.7 ? "bg-green-500" :
+                          bufferHealth > 0.3 ? "bg-yellow-500" : "bg-red-500"
+                        )}
+                        style={{ width: `${bufferHealth * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-white/70">Buffer</span>
+                  </div>
+                )}
 
                 <Button 
                   size="sm" 
