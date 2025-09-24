@@ -88,17 +88,13 @@ const SettingsManagement = () => {
 
   const loadSettings = async () => {
     try {
-      // Check if we have a settings table, if not, use defaults
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('*')
-        .single();
-        
-      if (data) {
-        setSettings({ ...defaultSettings, ...data.settings });
+      // Load settings from localStorage temporarily
+      const savedSettings = localStorage.getItem('dragon_shield_settings');
+      if (savedSettings) {
+        const parsed = JSON.parse(savedSettings);
+        setSettings({ ...defaultSettings, ...parsed });
       }
     } catch (error) {
-      // Table might not exist yet, use defaults
       console.log("Using default settings");
     } finally {
       setLoading(false);
@@ -108,15 +104,8 @@ const SettingsManagement = () => {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          id: 'global',
-          settings: settings,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
+      // Save settings to localStorage temporarily
+      localStorage.setItem('dragon_shield_settings', JSON.stringify(settings));
 
       toast({
         title: "Settings saved",
