@@ -124,29 +124,79 @@ serve(async (req) => {
       const primarySource = upstreamSources[0];
       
       try {
-        // Fetch the upstream M3U8 content
-        const upstreamResponse = await fetch(primarySource.url, {
-          headers: {
-            'User-Agent': 'Dragon Shield IPTV Server/1.0'
-          }
-        });
+        console.log(`Processing stream for channel ${channelId}, upstream URL: ${primarySource.url}`);
+        
+        // Check if this is a direct stream URL (.ts, .m3u, etc.) or M3U8 playlist
+        if (primarySource.url.endsWith('.ts') || primarySource.url.endsWith('.m3u')) {
+          console.log('Direct stream detected, creating M3U8 playlist');
+          
+          // For direct streams, create a simple M3U8 playlist
+          const m3u8Content = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:10.0,
+${primarySource.url}
+#EXT-X-ENDLIST`;
 
-        if (!upstreamResponse.ok) {
-          throw new Error(`Upstream server error: ${upstreamResponse.status}`);
+          return new Response(m3u8Content, {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/vnd.apple.mpegurl',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
         }
-
-        const upstreamContent = await upstreamResponse.text();
-
-        // Modify M3U8 content to proxy through our server if needed
-        let modifiedContent = upstreamContent;
-
-        // If the M3U8 contains relative URLs, make them absolute
+        
+        // Handle M3U8 playlist URLs
         if (primarySource.url.includes('.m3u8')) {
+          console.log('M3U8 playlist detected, fetching and proxying');
+          
+          const upstreamResponse = await fetch(primarySource.url, {
+            headers: {
+              'User-Agent': 'Dragon Shield IPTV Server/1.0'
+            }
+          });
+
+          if (!upstreamResponse.ok) {
+            throw new Error(`Upstream server error: ${upstreamResponse.status}`);
+          }
+
+          const upstreamContent = await upstreamResponse.text();
+
+          // Modify M3U8 content to proxy through our server if needed
+          let modifiedContent = upstreamContent;
+
+          // If the M3U8 contains relative URLs, make them absolute
           const baseUrl = primarySource.url.substring(0, primarySource.url.lastIndexOf('/'));
           modifiedContent = modifiedContent.replace(/^(?!https?:\/\/)([^\s]+\.ts)/gm, `${baseUrl}/$1`);
-        }
 
-        return new Response(modifiedContent, {
+          return new Response(modifiedContent, {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/vnd.apple.mpegurl',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'Expires': '0'
+            }
+          });
+        }
+        
+        // Fallback: treat as direct URL and create basic playlist
+        console.log('Unknown stream type, creating basic M3U8 playlist');
+        const fallbackM3u8 = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:10
+#EXT-X-MEDIA-SEQUENCE:0
+#EXTINF:10.0,
+${primarySource.url}
+#EXT-X-ENDLIST`;
+
+        return new Response(fallbackM3u8, {
           status: 200,
           headers: {
             ...corsHeaders,
@@ -159,9 +209,13 @@ serve(async (req) => {
 
       } catch (error) {
         console.error('Error proxying stream:', error);
-        return new Response('Stream unavailable', { 
+        return new Response(JSON.stringify({ 
+          error: 'Stream unavailable',
+          details: (error as any).message,
+          upstream_url: primarySource.url 
+        }), { 
           status: 503,
-          headers: corsHeaders 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
     }

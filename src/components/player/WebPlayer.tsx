@@ -81,6 +81,24 @@ const WebPlayer = ({
         setError(null);
         setIsConnected(false);
         
+        console.log('Setting up player with stream info:', streamInfo);
+        console.log('Stream URL being used:', src);
+        
+        // Test if the stream URL is accessible before setting up player
+        try {
+          const testResponse = await fetch(src, { 
+            method: 'HEAD',
+            mode: 'cors'
+          });
+          console.log('Stream URL test response:', testResponse.status, testResponse.statusText);
+          
+          if (!testResponse.ok) {
+            throw new Error(`Stream not accessible: ${testResponse.status} ${testResponse.statusText}`);
+          }
+        } catch (fetchError) {
+          console.warn('Stream URL test failed, proceeding anyway:', fetchError);
+        }
+        
         const engine = StreamingEngine.getInstance();
         const playerInstance = await engine.setupPlayer(video, streamInfo);
         setPlayer(playerInstance);
@@ -103,7 +121,7 @@ const WebPlayer = ({
         engine.cleanup(player, streamInfo.protocol);
       }
     };
-  }, [streamInfo]);
+  }, [streamInfo, src]);
 
   // Standard video event handlers
   useEffect(() => {
