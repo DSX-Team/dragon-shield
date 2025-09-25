@@ -371,20 +371,32 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
 
   const handleDownloadM3U = async (user: EnhancedProfile) => {
     try {
-      const response = await supabase.functions.invoke('playlist-generator', {
-        body: { 
-          username: user.username,
-          password: user.api_password || 'defaultpass',
-          format: 'm3u'
-        }
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
+      // Check if user has api_password set
+      if (!user.api_password) {
+        toast({
+          title: "Error",
+          description: "User doesn't have an API password set. Please edit the user and generate one.",
+          variant: "destructive"
+        });
+        return;
       }
 
+      // Call the playlist-generator function with query parameters
+      const supabaseUrl = "https://ccibslznriatjflaknso.supabase.co";
+      const playlistUrl = `${supabaseUrl}/functions/v1/playlist-generator?username=${encodeURIComponent(user.username)}&password=${encodeURIComponent(user.api_password)}`;
+      
+      const response = await fetch(playlistUrl);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      // Get the M3U content
+      const m3uContent = await response.text();
+
       // Create and download the M3U file
-      const blob = new Blob([response.data], { type: 'audio/x-mpegurl' });
+      const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -399,6 +411,7 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
         description: `M3U playlist downloaded for ${user.username}`
       });
     } catch (error: any) {
+      console.error('M3U Download error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to download M3U playlist",
@@ -553,8 +566,14 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
                       size="sm"
                       variant="outline"
                       onClick={() => handleDownloadM3U(user)}
-                      disabled={user.status !== 'active'}
-                      title={user.status !== 'active' ? 'User must be active to download playlist' : `Download M3U playlist for ${user.username}`}
+                      disabled={user.status !== 'active' || !user.api_password}
+                      title={
+                        user.status !== 'active' 
+                          ? 'User must be active to download playlist' 
+                          : !user.api_password 
+                          ? 'User needs API password - edit user to generate one'
+                          : `Download M3U playlist for ${user.username}`
+                      }
                     >
                       <Download className="w-4 h-4 mr-1" />
                       M3U
