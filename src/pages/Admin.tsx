@@ -15,7 +15,7 @@ import { SubscriptionManagement } from "@/components/admin/SubscriptionManagemen
 import ServerManagement from "@/components/admin/ServerManagement";
 import VideoProcessing from "@/components/admin/VideoProcessing";
 import SettingsManagement from "@/components/admin/SettingsManagement";
-import { BouquetManagement } from "@/components/admin/BouquetManagement";
+import { EnhancedBouquetManagement } from "@/components/admin/EnhancedBouquetManagement";
 import { ResellerManagement } from "@/components/admin/ResellerManagement";
 
 interface Profile {
@@ -366,7 +366,7 @@ const Admin = () => {
               </TabsContent>
 
               <TabsContent value="bouquets">
-                <BouquetManagement onUpdate={fetchAdminData} />
+                <EnhancedBouquetManagement onUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="settings">

@@ -78,7 +78,10 @@ export type Database = {
           description: string | null
           id: string
           is_adult: boolean | null
+          movie_ids: string[] | null
           name: string
+          radio_ids: string[] | null
+          series_ids: string[] | null
           sort_order: number | null
           updated_at: string | null
         }
@@ -88,7 +91,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_adult?: boolean | null
+          movie_ids?: string[] | null
           name: string
+          radio_ids?: string[] | null
+          series_ids?: string[] | null
           sort_order?: number | null
           updated_at?: string | null
         }
@@ -98,7 +104,10 @@ export type Database = {
           description?: string | null
           id?: string
           is_adult?: boolean | null
+          movie_ids?: string[] | null
           name?: string
+          radio_ids?: string[] | null
+          series_ids?: string[] | null
           sort_order?: number | null
           updated_at?: string | null
         }
@@ -198,6 +207,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      movies: {
+        Row: {
+          active: boolean | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          genre: string | null
+          id: string
+          name: string
+          poster_url: string | null
+          rating: number | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          genre?: string | null
+          id?: string
+          name: string
+          poster_url?: string | null
+          rating?: number | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          genre?: string | null
+          id?: string
+          name?: string
+          poster_url?: string | null
+          rating?: number | null
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
       }
       packages: {
         Row: {
@@ -328,6 +382,51 @@ export type Database = {
         }
         Relationships: []
       }
+      radio_stations: {
+        Row: {
+          active: boolean | null
+          category: string | null
+          country: string | null
+          created_at: string
+          description: string | null
+          frequency: string | null
+          id: string
+          language: string | null
+          logo_url: string | null
+          name: string
+          stream_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean | null
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          frequency?: string | null
+          id?: string
+          language?: string | null
+          logo_url?: string | null
+          name: string
+          stream_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean | null
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          description?: string | null
+          frequency?: string | null
+          id?: string
+          language?: string | null
+          logo_url?: string | null
+          name?: string
+          stream_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       resellers: {
         Row: {
           allowed_packages: string[] | null
@@ -377,6 +476,54 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      series: {
+        Row: {
+          active: boolean | null
+          category: string | null
+          created_at: string
+          description: string | null
+          episodes: number | null
+          genre: string | null
+          id: string
+          poster_url: string | null
+          rating: number | null
+          seasons: number | null
+          title: string
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          episodes?: number | null
+          genre?: string | null
+          id?: string
+          poster_url?: string | null
+          rating?: number | null
+          seasons?: number | null
+          title: string
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          episodes?: number | null
+          genre?: string | null
+          id?: string
+          poster_url?: string | null
+          rating?: number | null
+          seasons?: number | null
+          title?: string
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
       }
       server_credential_access_log: {
         Row: {
