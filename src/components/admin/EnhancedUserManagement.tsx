@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Plus, Pencil, Trash2, UserPlus, Users, Activity, Wifi, WifiOff, 
   Ban, UnlockKeyhole, Key, Download, Upload, Copy, Eye, EyeOff,
-  CreditCard, Clock, MapPin, Globe, Settings2, Zap
+  CreditCard, Clock, MapPin, Globe, Settings2, Zap, PlayCircle
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -369,6 +369,44 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  const handleDownloadM3U = async (user: EnhancedProfile) => {
+    try {
+      const response = await supabase.functions.invoke('playlist-generator', {
+        body: { 
+          username: user.username,
+          password: user.api_password || 'defaultpass',
+          format: 'm3u'
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      // Create and download the M3U file
+      const blob = new Blob([response.data], { type: 'audio/x-mpegurl' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${user.username}_playlist.m3u`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: `M3U playlist downloaded for ${user.username}`
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to download M3U playlist",
+        variant: "destructive"
+      });
+    }
+  };
+
   const openAddDialog = () => {
     setEditingUser(null);
     resetForm();
@@ -438,6 +476,7 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
                 <TableHead>Bandwidth</TableHead>
                 <TableHead>Last IP</TableHead>
                 <TableHead>Trial</TableHead>
+                <TableHead>M3U Download</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -508,6 +547,18 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
                         Trial
                       </Badge>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadM3U(user)}
+                      disabled={user.status !== 'active'}
+                      title={user.status !== 'active' ? 'User must be active to download playlist' : `Download M3U playlist for ${user.username}`}
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      M3U
+                    </Button>
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
