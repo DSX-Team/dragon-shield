@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
     // Extract username and password from URL path or query params
     let username = url.searchParams.get('username');
     let password = url.searchParams.get('password');
+    const format = url.searchParams.get('format') || 'both'; // 'hls', 'mpegts', or 'both'
     
     // Also support path-based auth like /playlist/username/password
     if (pathParts.length >= 4) {
@@ -122,34 +123,31 @@ Deno.serve(async (req) => {
     for (const channel of channels || []) {
       const sources = channel.upstream_sources as Array<{url: string, quality?: string}>;
       
-      // Add entries for each quality if available
-      for (const source of sources) {
-        const channelName = source.quality 
-          ? `${channel.name} ${source.quality.toUpperCase()}`
-          : channel.name;
+      if (!sources || sources.length === 0) continue;
+      
+      // Use the first source (primary stream)
+      const primarySource = sources[0];
+      const quality = primarySource.quality || 'HD';
+      
+      const tvgId = channel.epg_id || channel.name.replace(/\s+/g, '.');
+      const groupTitle = channel.category || 'General';
+      const logoUrl = channel.logo_url || '';
+      
+      // Add HLS stream if requested
+      if (format === 'hls' || format === 'both') {
+        const hlsStreamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.m3u8?username=${username}&password=${password}&quality=${quality}&format=hls`;
         
-        const tvgId = channel.epg_id || channel.name.replace(/\s+/g, '.');
-        const groupTitle = channel.category || 'General';
-        const logoUrl = channel.logo_url || '';
+        m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${channel.name}" tvg-logo="${logoUrl}" group-title="${groupTitle}",${channel.name}\n`;
+        m3uContent += `${hlsStreamUrl}\n`;
+      }
+      
+      // Add MPEGTS stream if requested
+      if (format === 'mpegts' || format === 'both') {
+        const mpegtsStreamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.ts?username=${username}&password=${password}&quality=${quality}&format=mpegts`;
         
-        // Generate different quality streams - both HLS and MPEGTS formats
-        const qualities = source.quality ? [source.quality] : ['HD', 'FHD'];
-        
-        for (const quality of qualities) {
-          const qualityChannelName = `${channel.name} ${quality}`;
-          
-          // HLS stream URL
-          const hlsStreamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.m3u8?username=${username}&password=${password}&quality=${quality}&format=hls`;
-          
-          m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${qualityChannelName}" tvg-logo="${logoUrl}" group-title="${groupTitle}",${qualityChannelName}\n`;
-          m3uContent += `${hlsStreamUrl}\n`;
-          
-          // MPEGTS stream URL
-          const mpegtsStreamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.ts?username=${username}&password=${password}&quality=${quality}&format=mpegts`;
-          
-          m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${qualityChannelName} (MPEGTS)" tvg-logo="${logoUrl}" group-title="${groupTitle}",${qualityChannelName} (MPEGTS)\n`;
-          m3uContent += `${mpegtsStreamUrl}\n`;
-        }
+        const formatSuffix = format === 'both' ? ' (MPEGTS)' : '';
+        m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${channel.name}${formatSuffix}" tvg-logo="${logoUrl}" group-title="${groupTitle}",${channel.name}${formatSuffix}\n`;
+        m3uContent += `${mpegtsStreamUrl}\n`;
       }
     }
 

@@ -78,6 +78,8 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
   const [userConnections, setUserConnections] = useState<UserConnection[]>([]);
   const [userActivity, setUserActivity] = useState<UserActivity[]>([]);
   const [showPassword, setShowPassword] = useState(false);
+  const [showFormatDialog, setShowFormatDialog] = useState(false);
+  const [selectedUserForM3U, setSelectedUserForM3U] = useState<EnhancedProfile | null>(null);
   
   const [formData, setFormData] = useState({
     username: "",
@@ -369,21 +371,29 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleDownloadM3U = async (user: EnhancedProfile) => {
-    try {
-      // Check if user has api_password set
-      if (!user.api_password) {
-        toast({
-          title: "Error",
-          description: "User doesn't have an API password set. Please edit the user and generate one.",
-          variant: "destructive"
-        });
-        return;
-      }
+  const handleDownloadM3U = (user: EnhancedProfile) => {
+    // Check if user has api_password set
+    if (!user.api_password) {
+      toast({
+        title: "Error",
+        description: "User doesn't have an API password set. Please edit the user and generate one.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-      // Call the playlist-generator function with query parameters
+    // Set the user and show format selection dialog
+    setSelectedUserForM3U(user);
+    setShowFormatDialog(true);
+  };
+
+  const downloadM3UWithFormat = async (format: 'hls' | 'mpegts' | 'both') => {
+    if (!selectedUserForM3U) return;
+    
+    try {
+      // Call the playlist-generator function with format parameter
       const supabaseUrl = "https://ccibslznriatjflaknso.supabase.co";
-      const playlistUrl = `${supabaseUrl}/functions/v1/playlist-generator?username=${encodeURIComponent(user.username)}&password=${encodeURIComponent(user.api_password)}`;
+      const playlistUrl = `${supabaseUrl}/functions/v1/playlist-generator?username=${encodeURIComponent(selectedUserForM3U.username)}&password=${encodeURIComponent(selectedUserForM3U.api_password!)}&format=${format}`;
       
       const response = await fetch(playlistUrl);
 
@@ -400,7 +410,7 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${user.username}_playlist.m3u`;
+      link.download = `${selectedUserForM3U.username}_${format}_playlist.m3u`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -408,8 +418,11 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
 
       toast({
         title: "Success",
-        description: `M3U playlist downloaded for ${user.username}`
+        description: `M3U playlist downloaded for ${selectedUserForM3U.username}`
       });
+      
+      setShowFormatDialog(false);
+      setSelectedUserForM3U(null);
     } catch (error: any) {
       console.error('M3U Download error:', error);
       toast({
@@ -937,6 +950,49 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
             </Button>
             <Button onClick={handleSubmit}>
               {editingUser ? "Update" : "Create"} User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Format Selection Dialog */}
+      <Dialog open={showFormatDialog} onOpenChange={setShowFormatDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select M3U Format</DialogTitle>
+            <DialogDescription>
+              Choose the streaming format for {selectedUserForM3U?.username}'s playlist:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => downloadM3UWithFormat('hls')}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              HLS Format (.m3u8) - Compatible with most modern players
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => downloadM3UWithFormat('mpegts')}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              MPEG-TS Format (.ts) - Compatible with older players
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => downloadM3UWithFormat('both')}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Both Formats - All channels with both HLS and MPEG-TS options
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowFormatDialog(false)}>
+              Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
