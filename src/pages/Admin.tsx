@@ -8,7 +8,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Users, Tv, Package, CreditCard, Server, Video, Settings, Crown } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { EnhancedUserManagement } from "@/components/admin/EnhancedUserManagement";
+import { ClientManagement } from "@/components/admin/ClientManagement";
 import { ChannelManagement } from "@/components/admin/ChannelManagement";
 import { PackageManagement } from "@/components/admin/PackageManagement";
 import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
@@ -341,9 +341,9 @@ const Admin = () => {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="users">
-                <EnhancedUserManagement users={users} onUsersUpdate={fetchAdminData} />
-              </TabsContent>
+          <TabsContent value="users">
+            <ClientManagement onUpdate={fetchAdminData} />
+          </TabsContent>
 
               <TabsContent value="resellers">
                 <ResellerManagement onUpdate={fetchAdminData} />

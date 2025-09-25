@@ -33,6 +33,7 @@ interface Reseller {
   commission_rate: number;
   is_active: boolean;
   notes: string;
+  type: 'reseller' | 'admin';
 }
 
 interface Package {
@@ -64,7 +65,8 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
     allowed_packages: [] as string[],
     max_users: 100,
     commission_rate: 0.1,
-    notes: ""
+    notes: "",
+    role: "reseller" as "reseller" | "admin"
   });
   
   const { toast } = useToast();
@@ -76,7 +78,7 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch resellers with their profile data
+      // Fetch resellers and admins with their profile data
       const { data: resellersData, error: resellersError } = await supabase
         .from("resellers")
         .select(`
@@ -87,12 +89,22 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
             status,
             created_at,
             credits,
-            notes
+            notes,
+            roles
           )
         `)
         .order("created_at", { ascending: false });
 
       if (resellersError) throw resellersError;
+
+      // Also fetch admin users
+      const { data: adminData, error: adminError } = await supabase
+        .from("profiles")
+        .select("*")
+        .contains("roles", ["admin"])
+        .order("created_at", { ascending: false });
+
+      if (adminError) throw adminError;
 
       // Fetch available packages
       const { data: packagesData, error: packagesError } = await supabase
@@ -103,7 +115,7 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
 
       if (packagesError) throw packagesError;
 
-      // Transform the data to match our interface
+      // Transform the resellers data
       const transformedResellers = resellersData?.map(r => ({
         id: r.id,
         user_id: r.user_id,
@@ -118,10 +130,32 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
         created_users: r.created_users,
         commission_rate: r.commission_rate,
         is_active: r.is_active,
-        notes: r.profiles.notes || ""
+        notes: r.profiles.notes || "",
+        type: 'reseller' as const
       })) || [];
 
-      setResellers(transformedResellers);
+      // Transform admin data
+      const transformedAdmins = adminData?.map(a => ({
+        id: a.id,
+        user_id: a.user_id,
+        username: a.username,
+        email: a.email,
+        status: a.status,
+        created_at: a.created_at,
+        credits: a.credits || 0,
+        credit_price: 0,
+        allowed_packages: [],
+        max_users: 0,
+        created_users: 0,
+        commission_rate: 0,
+        is_active: a.status === 'active',
+        notes: a.notes || "",
+        type: 'admin' as const
+      })) || [];
+
+      // Combine resellers and admins
+      const allUsers = [...transformedResellers, ...transformedAdmins];
+      setResellers(allUsers);
       setPackages(packagesData || []);
     } catch (error) {
       console.error("Error fetching resellers:", error);
@@ -252,7 +286,8 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
       allowed_packages: [],
       max_users: 100,
       commission_rate: 0.1,
-      notes: ""
+      notes: "",
+      role: "reseller"
     });
   };
 
@@ -268,7 +303,8 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
       allowed_packages: reseller.allowed_packages,
       max_users: reseller.max_users,
       commission_rate: reseller.commission_rate,
-      notes: reseller.notes
+      notes: reseller.notes,
+      role: reseller.type
     });
     setShowDialog(true);
   };
@@ -341,19 +377,20 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
           <div>
             <CardTitle className="flex items-center gap-2">
               <Crown className="h-5 w-5 text-yellow-500" />
-              Reseller Management
+              Reseller & Admin Management
             </CardTitle>
-            <CardDescription>Manage reseller accounts and their permissions</CardDescription>
+            <CardDescription>Manage reseller accounts and admin users</CardDescription>
           </div>
           <Button onClick={openAddDialog}>
             <UserPlus className="w-4 h-4 mr-2" />
-            Add Reseller
+            Add Reseller/Admin
           </Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Type</TableHead>
                 <TableHead>Username</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Status</TableHead>
@@ -368,11 +405,20 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
             <TableBody>
               {resellers.map((reseller) => (
                 <TableRow key={reseller.id}>
-                  <TableCell className="font-medium">
+                  <TableCell>
                     <div className="flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-yellow-500" />
-                      {reseller.username}
+                      {reseller.type === 'admin' ? (
+                        <Shield className="h-4 w-4 text-red-500" />
+                      ) : (
+                        <Crown className="h-4 w-4 text-yellow-500" />
+                      )}
+                      <Badge variant={reseller.type === 'admin' ? 'destructive' : 'secondary'}>
+                        {reseller.type}
+                      </Badge>
                     </div>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {reseller.username}
                   </TableCell>
                   <TableCell>{reseller.email}</TableCell>
                   <TableCell>
@@ -393,20 +439,32 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">
-                      <div>{reseller.created_users}/{reseller.max_users}</div>
-                      <div className="text-muted-foreground">users</div>
-                    </div>
+                    {reseller.type === 'reseller' ? (
+                      <div className="text-sm">
+                        <div>{reseller.created_users}/{reseller.max_users}</div>
+                        <div className="text-muted-foreground">users</div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">
-                      {(reseller.commission_rate * 100).toFixed(1)}%
-                    </Badge>
+                    {reseller.type === 'reseller' ? (
+                      <Badge variant="outline">
+                        {(reseller.commission_rate * 100).toFixed(1)}%
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">N/A</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">
-                      {reseller.allowed_packages.length} packages
-                    </Badge>
+                    {reseller.type === 'reseller' ? (
+                      <Badge variant="secondary">
+                        {reseller.allowed_packages.length} packages
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Full Access</Badge>
+                    )}
                   </TableCell>
                   <TableCell>{new Date(reseller.created_at).toLocaleDateString()}</TableCell>
                   <TableCell>
@@ -446,10 +504,10 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {editingReseller ? <Pencil className="h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
-              {editingReseller ? "Edit Reseller" : "Create New Reseller"}
+              {editingReseller ? "Edit User" : "Create New User"}
             </DialogTitle>
             <DialogDescription>
-              {editingReseller ? "Update reseller information and permissions" : "Create a new reseller account"}
+              {editingReseller ? "Update user information and permissions" : "Create a new reseller or admin account"}
             </DialogDescription>
           </DialogHeader>
           
@@ -497,6 +555,19 @@ export const ResellerManagement = ({ onUpdate }: ResellerManagementProps) => {
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                     <SelectItem value="banned">Banned</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select value={formData.role} onValueChange={(value: "reseller" | "admin") => setFormData({...formData, role: value})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="reseller">Reseller</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
