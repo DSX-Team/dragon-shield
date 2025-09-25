@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Users, Tv, Package, CreditCard, Server, Video, Settings } from "lucide-react";
+import { Users, Tv, Package, CreditCard, Server, Video, Settings, Crown } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { EnhancedUserManagement } from "@/components/admin/EnhancedUserManagement";
@@ -16,6 +16,7 @@ import ServerManagement from "@/components/admin/ServerManagement";
 import VideoProcessing from "@/components/admin/VideoProcessing";
 import SettingsManagement from "@/components/admin/SettingsManagement";
 import { BouquetManagement } from "@/components/admin/BouquetManagement";
+import { ResellerManagement } from "@/components/admin/ResellerManagement";
 
 interface Profile {
   id: string;
@@ -301,10 +302,14 @@ const Admin = () => {
 
             {/* Main Content Tabs */}
             <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
+              <TabsList className="grid w-full grid-cols-9 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
                 <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Users className="w-4 h-4 mr-2" />
-                  Users
+                  Clients
+                </TabsTrigger>
+                <TabsTrigger value="resellers" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Crown className="w-4 h-4 mr-2" />
+                  Resellers
                 </TabsTrigger>
                 <TabsTrigger value="channels" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Tv className="w-4 h-4 mr-2" />
@@ -334,6 +339,10 @@ const Admin = () => {
 
               <TabsContent value="users">
                 <EnhancedUserManagement users={users} onUsersUpdate={fetchAdminData} />
+              </TabsContent>
+
+              <TabsContent value="resellers">
+                <ResellerManagement onUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="channels">

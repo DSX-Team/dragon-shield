@@ -421,9 +421,9 @@ export const EnhancedUserManagement = ({ users, onUsersUpdate }: EnhancedUserMan
           <div>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
-              Advanced User Management
+              Client Management
             </CardTitle>
-            <CardDescription>Complete Xtream Codes user management system</CardDescription>
+            <CardDescription>Complete Xtream Codes client management system</CardDescription>
           </div>
           <div className="flex gap-2">
             {selectedUsers.length > 0 && (
