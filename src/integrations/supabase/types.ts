@@ -71,6 +71,39 @@ export type Database = {
         }
         Relationships: []
       }
+      bouquets: {
+        Row: {
+          channel_ids: string[] | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_adult: boolean | null
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          channel_ids?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_adult?: boolean | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          channel_ids?: string[] | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_adult?: boolean | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       channels: {
         Row: {
           active: boolean | null
@@ -210,39 +243,140 @@ export type Database = {
       }
       profiles: {
         Row: {
+          allowed_ips: string[] | null
+          api_password: string | null
+          banned_ips: string[] | null
+          bouquet_ids: string[] | null
+          country_code: string | null
           created_at: string
+          credits: number | null
+          daily_bandwidth_limit: number | null
           email: string
           id: string
+          is_trial: boolean | null
+          last_ip: unknown | null
           last_login: string | null
+          max_connections: number | null
+          notes: string | null
+          parent_id: string | null
+          reseller_id: string | null
           roles: string[] | null
           status: string | null
+          timezone: string | null
+          total_bandwidth_used: number | null
+          trial_expires_at: string | null
           updated_at: string
+          user_agent: string | null
           user_id: string
           username: string
         }
         Insert: {
+          allowed_ips?: string[] | null
+          api_password?: string | null
+          banned_ips?: string[] | null
+          bouquet_ids?: string[] | null
+          country_code?: string | null
           created_at?: string
+          credits?: number | null
+          daily_bandwidth_limit?: number | null
           email: string
           id?: string
+          is_trial?: boolean | null
+          last_ip?: unknown | null
           last_login?: string | null
+          max_connections?: number | null
+          notes?: string | null
+          parent_id?: string | null
+          reseller_id?: string | null
           roles?: string[] | null
           status?: string | null
+          timezone?: string | null
+          total_bandwidth_used?: number | null
+          trial_expires_at?: string | null
           updated_at?: string
+          user_agent?: string | null
           user_id: string
           username: string
         }
         Update: {
+          allowed_ips?: string[] | null
+          api_password?: string | null
+          banned_ips?: string[] | null
+          bouquet_ids?: string[] | null
+          country_code?: string | null
           created_at?: string
+          credits?: number | null
+          daily_bandwidth_limit?: number | null
           email?: string
           id?: string
+          is_trial?: boolean | null
+          last_ip?: unknown | null
           last_login?: string | null
+          max_connections?: number | null
+          notes?: string | null
+          parent_id?: string | null
+          reseller_id?: string | null
           roles?: string[] | null
           status?: string | null
+          timezone?: string | null
+          total_bandwidth_used?: number | null
+          trial_expires_at?: string | null
           updated_at?: string
+          user_agent?: string | null
           user_id?: string
           username?: string
         }
         Relationships: []
+      }
+      resellers: {
+        Row: {
+          allowed_packages: string[] | null
+          commission_rate: number | null
+          created_at: string | null
+          created_users: number | null
+          credit_price: number | null
+          credits: number | null
+          id: string
+          is_active: boolean | null
+          max_users: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allowed_packages?: string[] | null
+          commission_rate?: number | null
+          created_at?: string | null
+          created_users?: number | null
+          credit_price?: number | null
+          credits?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_users?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allowed_packages?: string[] | null
+          commission_rate?: number | null
+          created_at?: string | null
+          created_users?: number | null
+          credit_price?: number | null
+          credits?: number | null
+          id?: string
+          is_active?: boolean | null
+          max_users?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resellers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       server_credential_access_log: {
         Row: {
@@ -520,6 +654,97 @@ export type Database = {
           },
         ]
       }
+      user_activity_logs: {
+        Row: {
+          action: string
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          timestamp: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          timestamp?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_connections: {
+        Row: {
+          bytes_transferred: number | null
+          channel_id: string | null
+          connected_at: string | null
+          created_at: string | null
+          disconnected_at: string | null
+          duration_seconds: number | null
+          id: string
+          ip_address: unknown
+          is_active: boolean | null
+          stream_type: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          bytes_transferred?: number | null
+          channel_id?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          disconnected_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          ip_address: unknown
+          is_active?: boolean | null
+          stream_type?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          bytes_transferred?: number | null
+          channel_id?: string | null
+          connected_at?: string | null
+          created_at?: string | null
+          disconnected_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          ip_address?: unknown
+          is_active?: boolean | null
+          stream_type?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -528,6 +753,10 @@ export type Database = {
       create_default_admin_if_none_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      generate_api_password: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_admin_dashboard_stats: {
         Args: Record<PropertyKey, never>
@@ -561,6 +790,16 @@ export type Database = {
       get_user_role: {
         Args: { user_uuid: string }
         Returns: string
+      }
+      get_user_statistics: {
+        Args: { user_uuid: string }
+        Returns: {
+          active_connections: number
+          last_activity: string
+          most_used_ip: unknown
+          total_bandwidth: number
+          total_connections: number
+        }[]
       }
       validate_server_access: {
         Args: { server_uuid: string }
