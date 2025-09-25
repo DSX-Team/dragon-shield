@@ -514,50 +514,9 @@ export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagemen
           </div>
         </div>
 
-        {/* Bulk Actions */}
-        <div className="flex gap-2 p-2 border rounded-lg bg-background">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              // Add all filtered items to bouquet
-              const itemIds = filteredContent.map(item => item.id);
-              const fieldName = contentType === 'channels' ? 'channel_ids' : 
-                               contentType === 'movies' ? 'movie_ids' :
-                               contentType === 'series' ? 'series_ids' : 'radio_ids';
-              
-              const newIds = [...new Set([...formData[fieldName], ...itemIds])];
-              setFormData({ ...formData, [fieldName]: newIds });
-            }}
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            Add All ({filteredContent.length})
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              // Remove all filtered items from bouquet
-              const itemIds = filteredContent.map(item => item.id);
-              const fieldName = contentType === 'channels' ? 'channel_ids' : 
-                               contentType === 'movies' ? 'movie_ids' :
-                               contentType === 'series' ? 'series_ids' : 'radio_ids';
-              
-              const newIds = formData[fieldName].filter(id => !itemIds.includes(id));
-              setFormData({ ...formData, [fieldName]: newIds });
-            }}
-          >
-            <Filter className="w-3 h-3 mr-1" />
-            Remove All
-          </Button>
-          <div className="ml-auto text-sm text-muted-foreground flex items-center">
-            {selectedIds.length} / {filteredContent.length} selected
-          </div>
-        </div>
-
-        {/* Content Grid */}
+        {/* Content Items */}
         <div className="max-h-96 overflow-y-auto border rounded-lg">
-          <div className="grid gap-2 p-4">
+          <div className="space-y-2 p-4">
             {filteredContent.map((item: any) => {
               const isSelected = selectedIds.includes(item.id);
               const displayName = contentType === 'series' ? item.title : item.name;
@@ -569,26 +528,21 @@ export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagemen
                     isSelected ? 'bg-primary/10 border-primary' : 'bg-card hover:bg-muted/50'
                   }`}
                 >
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={isSelected}
-                    onChange={(e) => handleContentToggle(item.id, contentType, e.target.checked)}
-                    className="rounded"
+                    onCheckedChange={(checked) => handleContentToggle(item.id, contentType, checked as boolean)}
                   />
                   
                   {(item.logo_url || item.poster_url) && (
                     <img 
                       src={item.logo_url || item.poster_url} 
                       alt="" 
-                      className="w-10 h-10 rounded object-cover bg-muted"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
+                      className="w-10 h-10 rounded object-cover"
                     />
                   )}
                   
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{displayName}</div>
+                  <div className="flex-1">
+                    <div className="font-medium">{displayName}</div>
                     <div className="text-sm text-muted-foreground flex items-center gap-2">
                       <Badge variant="secondary" className="text-xs">
                         {item.category}
@@ -634,133 +588,6 @@ export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagemen
       </div>
     );
   };
-            <Label>Search</Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder={`Search ${contentType}...`}
-                className="pl-10"
-                value={filters[contentType].search}
-                onChange={(e) => setFilters(prev => ({
-                  ...prev,
-                  [contentType]: { ...prev[contentType], search: e.target.value }
-                }))}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Content List */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Select {contentType === 'channels' ? 'Channels' : 
-                          contentType === 'movies' ? 'Movies' :
-                          contentType === 'series' ? 'Series' : 'Radio Stations'} 
-              ({selectedIds.length} selected)
-            </Label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const allIds = filteredContent.map(item => item.id);
-                const allSelected = allIds.every(id => selectedIds.includes(id));
-                
-                if (allSelected) {
-                  // Deselect all visible
-                  setFormData(prev => ({
-                    ...prev,
-                    [contentType === 'channels' ? 'channel_ids' : 
-                     contentType === 'movies' ? 'movie_ids' :
-                     contentType === 'series' ? 'series_ids' : 'radio_ids']: 
-                     selectedIds.filter(id => !allIds.includes(id))
-                  }));
-                } else {
-                  // Select all visible
-                  const newIds = [...new Set([...selectedIds, ...allIds])];
-                  setFormData(prev => ({
-                    ...prev,
-                    [contentType === 'channels' ? 'channel_ids' : 
-                     contentType === 'movies' ? 'movie_ids' :
-                     contentType === 'series' ? 'series_ids' : 'radio_ids']: newIds
-                  }));
-                }
-              }}
-            >
-              Toggle Page
-            </Button>
-          </div>
-          
-          <div className="border rounded-md max-h-64 overflow-y-auto">
-            {filteredContent.map((item) => (
-              <div key={item.id} className="flex items-center space-x-3 p-3 border-b hover:bg-muted/50">
-                <Checkbox
-                  id={`${contentType}-${item.id}`}
-                  checked={selectedIds.includes(item.id)}
-                  onCheckedChange={(checked) => handleContentToggle(item.id, contentType, !!checked)}
-                />
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">
-                      {contentType === 'series' ? (item as Series).title : 
-                       contentType === 'channels' ? (item as Channel).name :
-                       contentType === 'movies' ? (item as Movie).name :
-                       (item as RadioStation).name}
-                    </span>
-                    
-                    {(item as any).category && (
-                      <Badge variant="outline" className="text-xs">
-                        {(item as any).category}
-                      </Badge>
-                    )}
-                    
-                    {contentType === 'movies' && (item as Movie).rating && (
-                      <Badge variant="secondary" className="text-xs">
-                        <Star className="w-3 h-3 mr-1" />
-                        {(item as Movie).rating}
-                      </Badge>
-                    )}
-                    
-                    {contentType === 'series' && (
-                      <Badge variant="secondary" className="text-xs">
-                        S{(item as Series).seasons} E{(item as Series).episodes}
-                      </Badge>
-                    )}
-                    
-                    {contentType === 'radio' && (item as RadioStation).frequency && (
-                      <Badge variant="secondary" className="text-xs">
-                        {(item as RadioStation).frequency}
-                      </Badge>
-                    )}
-                    
-                    {(contentType === 'movies' || contentType === 'series') && (item as Movie | Series).year && (
-                      <Badge variant="outline" className="text-xs">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {(item as Movie | Series).year}
-                      </Badge>
-                    )}
-                    
-                    {contentType === 'radio' && (item as RadioStation).country && (
-                      <Badge variant="outline" className="text-xs">
-                        <Globe className="w-3 h-3 mr-1" />
-                        {(item as RadioStation).country}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {filteredContent.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground">
-                No {contentType} found matching your filters.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   if (loading) {
     return (
@@ -774,327 +601,230 @@ export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagemen
 
   return (
     <>
-      <Card className="animate-fade-in-scale">
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-xtream-blue to-xtream-navy bg-clip-text text-transparent">
-              <Package className="h-5 w-5 text-xtream-blue" />
+            <CardTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5" />
               Enhanced Bouquet Management
             </CardTitle>
-            <CardDescription>Manage comprehensive content bouquets with channels, movies, series and radio</CardDescription>
+            <CardDescription>Create and manage content bouquets with channels, movies, series, and radio</CardDescription>
           </div>
-          <Button onClick={openAddDialog} className="bg-gradient-to-r from-xtream-blue to-xtream-navy hover:from-xtream-blue-light hover:to-xtream-navy shadow-lg hover:shadow-xl transition-all duration-300">
+          <Button onClick={openAddDialog}>
             <Plus className="w-4 h-4 mr-2" />
-            Add Bouquet
+            Create Bouquet
           </Button>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Order</TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Content Types</TableHead>
-                <TableHead>Classification</TableHead>
-                <TableHead>Total Items</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>Content</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Sort Order</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bouquets.map((bouquet) => {
                 const counts = getContentCounts(bouquet);
-                const total = getTotalContent(bouquet);
+                const totalContent = getTotalContent(bouquet);
+                
                 return (
-                  <TableRow key={bouquet.id} className="hover:bg-muted/50 transition-colors">
+                  <TableRow key={bouquet.id}>
                     <TableCell>
-                      <Badge variant="outline" className="font-mono">{bouquet.sort_order}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">{bouquet.name}</TableCell>
-                    <TableCell className="max-w-xs truncate">
-                      {bouquet.description || <span className="text-muted-foreground italic">No description</span>}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {counts.channels > 0 && (
-                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
-                            <Tv className="w-3 h-3 mr-1" />
-                            {counts.channels}
-                          </Badge>
-                        )}
-                        {counts.movies > 0 && (
-                          <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
-                            <Film className="w-3 h-3 mr-1" />
-                            {counts.movies}
-                          </Badge>
-                        )}
-                        {counts.series > 0 && (
-                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
-                            <MonitorPlay className="w-3 h-3 mr-1" />
-                            {counts.series}
-                          </Badge>
-                        )}
-                        {counts.radio > 0 && (
-                          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
-                            <Radio className="w-3 h-3 mr-1" />
-                            {counts.radio}
-                          </Badge>
+                      <div>
+                        <div className="font-medium">{bouquet.name}</div>
+                        {bouquet.description && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            {bouquet.description}
+                          </div>
                         )}
                       </div>
                     </TableCell>
                     <TableCell>
-                      {bouquet.is_adult ? (
-                        <Badge variant="destructive">Adult</Badge>
-                      ) : (
-                        <Badge variant="secondary">General</Badge>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {counts.channels > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            <Tv className="w-3 h-3 mr-1" />
+                            {counts.channels} Ch
+                          </Badge>
+                        )}
+                        {counts.movies > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            <Film className="w-3 h-3 mr-1" />
+                            {counts.movies} Movies
+                          </Badge>
+                        )}
+                        {counts.series > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            <MonitorPlay className="w-3 h-3 mr-1" />
+                            {counts.series} Series
+                          </Badge>
+                        )}
+                        {counts.radio > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            <Radio className="w-3 h-3 mr-1" />
+                            {counts.radio} Radio
+                          </Badge>
+                        )}
+                        {totalContent === 0 && (
+                          <span className="text-sm text-muted-foreground">Empty</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-gradient-to-r from-xtream-blue to-xtream-navy text-white font-bold">
-                        {total}
+                      <Badge variant={bouquet.is_adult ? "destructive" : "secondary"}>
+                        {bouquet.is_adult ? "Adult" : "General"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(bouquet.created_at).toLocaleDateString()}
+                    <TableCell>
+                      <Badge variant="outline">{bouquet.sort_order}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-1">
+                      <div className="flex gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleEdit(bouquet)}
-                          title="Edit bouquet"
-                          className="hover:bg-xtream-blue hover:text-white transition-colors"
                         >
-                          <Pencil className="w-3 h-3" />
+                          <Pencil className="w-4 h-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleDuplicate(bouquet)}
-                          title="Duplicate bouquet"
-                          className="hover:bg-xtream-orange hover:text-white transition-colors"
                         >
-                          <Copy className="w-3 h-3" />
+                          <Copy className="w-4 h-4" />
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
                           onClick={() => handleDelete(bouquet.id)}
-                          title="Delete bouquet"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
                   </TableRow>
                 );
               })}
-              {bouquets.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
-                    <Package className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <p>No bouquets found.</p>
-                    <p className="text-sm">Create your first comprehensive bouquet to get started.</p>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {editingBouquet ? <Pencil className="h-5 w-5 text-xtream-blue" /> : <Plus className="h-5 w-5 text-xtream-blue" />}
-              <span className="bg-gradient-to-r from-xtream-blue to-xtream-navy bg-clip-text text-transparent">
-                {editingBouquet ? "Edit Bouquet" : "Create New Bouquet"}
-              </span>
+            <DialogTitle>
+              {editingBouquet ? "Edit Bouquet" : "Create New Bouquet"}
             </DialogTitle>
             <DialogDescription>
-              {editingBouquet ? "Update bouquet information and content selection" : "Create a comprehensive content bouquet with channels, movies, series and radio"}
+              {editingBouquet ? "Update bouquet information and content" : "Create a new content bouquet"}
             </DialogDescription>
           </DialogHeader>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
-            <TabsList className="grid w-full grid-cols-6 bg-muted/50">
-              <TabsTrigger value="details" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
-                <Package className="w-4 h-4" />
-                Details
-              </TabsTrigger>
-              <TabsTrigger value="channels" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
-                <Tv className="w-4 h-4" />
-                Channels ({formData.channel_ids.length})
-              </TabsTrigger>
-              <TabsTrigger value="movies" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
-                <Film className="w-4 h-4" />
-                Movies ({formData.movie_ids.length})
-              </TabsTrigger>
-              <TabsTrigger value="series" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
-                <MonitorPlay className="w-4 h-4" />
-                Series ({formData.series_ids.length})
-              </TabsTrigger>
-              <TabsTrigger value="radio" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
-                <Radio className="w-4 h-4" />
-                Radio ({formData.radio_ids.length})
-              </TabsTrigger>
-              <TabsTrigger value="review" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-orange data-[state=active]:to-accent data-[state=active]:text-white">
-                <Eye className="w-4 h-4" />
-                Review
-              </TabsTrigger>
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="channels">Channels</TabsTrigger>
+              <TabsTrigger value="movies">Movies</TabsTrigger>
+              <TabsTrigger value="series">Series</TabsTrigger>
+              <TabsTrigger value="radio">Radio</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="details" className="space-y-6 p-6">
-              <div className="grid grid-cols-2 gap-6">
+            
+            <TabsContent value="details" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Bouquet Name *</Label>
                   <Input
                     id="name"
-                    placeholder="Premium Sports & Entertainment Package"
+                    placeholder="e.g. Premium Package"
                     value={formData.name}
                     onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className="bg-background/50 backdrop-blur-sm border-border/50 focus:bg-background/70 transition-all duration-300"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="sort-order">Sort Order</Label>
+                  <Label htmlFor="sort_order">Sort Order</Label>
                   <Input
-                    id="sort-order"
+                    id="sort_order"
                     type="number"
-                    min="0"
+                    placeholder="0"
                     value={formData.sort_order}
                     onChange={(e) => setFormData({...formData, sort_order: parseInt(e.target.value) || 0})}
-                    className="bg-background/50 backdrop-blur-sm border-border/50 focus:bg-background/70 transition-all duration-300"
                   />
                 </div>
               </div>
-
+              
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
-                  placeholder="Comprehensive package including live TV channels, premium movies, popular series and radio stations..."
+                  placeholder="Describe this bouquet..."
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="bg-background/50 backdrop-blur-sm border-border/50 focus:bg-background/70 transition-all duration-300 min-h-20"
+                  rows={3}
                 />
-              </div>
-
-              <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-lg border border-border/50">
-                <Checkbox
-                  id="is-adult"
-                  checked={formData.is_adult}
-                  onCheckedChange={(checked) => setFormData({...formData, is_adult: !!checked})}
-                />
-                <Label htmlFor="is-adult" className="text-sm font-medium">
-                  Adult Content Bouquet
-                  <span className="block text-xs text-muted-foreground">
-                    Mark this bouquet as containing adult or mature content
-                  </span>
-                </Label>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="channels" className="p-6">
-              {renderContentTab('channels')}
-            </TabsContent>
-
-            <TabsContent value="movies" className="p-6">
-              {renderContentTab('movies')}
-            </TabsContent>
-
-            <TabsContent value="series" className="p-6">
-              {renderContentTab('series')}
-            </TabsContent>
-
-            <TabsContent value="radio" className="p-6">
-              {renderContentTab('radio')}
-            </TabsContent>
-
-            <TabsContent value="review" className="p-6 space-y-6">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">Bouquet Review</h3>
-                <p className="text-muted-foreground">Review all selected content for your bouquet</p>
               </div>
               
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Tv className="w-4 h-4 text-blue-600" />
-                      <span className="font-medium text-blue-900">Live Channels ({formData.channel_ids.length})</span>
-                    </div>
-                    <div className="text-sm text-blue-700">
-                      {formData.channel_ids.length === 0 ? "No channels selected" : 
-                       `${formData.channel_ids.length} live TV channels selected`}
-                    </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="is_adult"
+                  checked={formData.is_adult}
+                  onCheckedChange={(checked) => setFormData({...formData, is_adult: checked as boolean})}
+                />
+                <Label htmlFor="is_adult">Adult Content</Label>
+              </div>
+              
+              {/* Content Summary */}
+              <div className="p-4 bg-muted/50 rounded-lg">
+                <Label className="text-sm font-medium">Content Summary</Label>
+                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{formData.channel_ids.length}</div>
+                    <div className="text-xs text-muted-foreground">Channels</div>
                   </div>
-
-                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Film className="w-4 h-4 text-purple-600" />
-                      <span className="font-medium text-purple-900">Movies ({formData.movie_ids.length})</span>
-                    </div>
-                    <div className="text-sm text-purple-700">
-                      {formData.movie_ids.length === 0 ? "No movies selected" : 
-                       `${formData.movie_ids.length} movies selected`}
-                    </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-red-600">{formData.movie_ids.length}</div>
+                    <div className="text-xs text-muted-foreground">Movies</div>
                   </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <MonitorPlay className="w-4 h-4 text-green-600" />
-                      <span className="font-medium text-green-900">TV Series ({formData.series_ids.length})</span>
-                    </div>
-                    <div className="text-sm text-green-700">
-                      {formData.series_ids.length === 0 ? "No series selected" : 
-                       `${formData.series_ids.length} TV series selected`}
-                    </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">{formData.series_ids.length}</div>
+                    <div className="text-xs text-muted-foreground">Series</div>
                   </div>
-
-                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Radio className="w-4 h-4 text-orange-600" />
-                      <span className="font-medium text-orange-900">Radio Stations ({formData.radio_ids.length})</span>
-                    </div>
-                    <div className="text-sm text-orange-700">
-                      {formData.radio_ids.length === 0 ? "No radio stations selected" : 
-                       `${formData.radio_ids.length} radio stations selected`}
-                    </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{formData.radio_ids.length}</div>
+                    <div className="text-xs text-muted-foreground">Radio</div>
                   </div>
                 </div>
               </div>
-
-              <div className="p-6 bg-gradient-to-r from-xtream-blue/10 to-xtream-navy/10 rounded-lg border border-xtream-blue/20 text-center">
-                <div className="text-2xl font-bold text-xtream-navy mb-2">
-                  Total Content: {formData.channel_ids.length + formData.movie_ids.length + formData.series_ids.length + formData.radio_ids.length}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  This comprehensive bouquet will provide users with access to all selected content across multiple categories.
-                </div>
-              </div>
+            </TabsContent>
+            
+            <TabsContent value="channels" className="overflow-y-auto max-h-[60vh]">
+              {renderContentTab('channels')}
+            </TabsContent>
+            
+            <TabsContent value="movies" className="overflow-y-auto max-h-[60vh]">
+              {renderContentTab('movies')}
+            </TabsContent>
+            
+            <TabsContent value="series" className="overflow-y-auto max-h-[60vh]">
+              {renderContentTab('series')}
+            </TabsContent>
+            
+            <TabsContent value="radio" className="overflow-y-auto max-h-[60vh]">
+              {renderContentTab('radio')}
             </TabsContent>
           </Tabs>
 
-          <DialogFooter className="flex gap-3 mt-6 pt-6 border-t">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowDialog(false)}
-              className="hover:bg-muted/80 transition-colors"
-            >
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!formData.name.trim()}
-              className="bg-gradient-to-r from-xtream-blue to-xtream-navy hover:from-xtream-blue-light hover:to-xtream-navy text-white shadow-lg hover:shadow-xl transition-all duration-300"
-            >
+            <Button onClick={handleSubmit} disabled={loading}>
               {editingBouquet ? "Update" : "Create"} Bouquet
             </Button>
           </DialogFooter>
