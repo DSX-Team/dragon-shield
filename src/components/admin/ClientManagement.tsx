@@ -116,6 +116,8 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
+      console.log("Fetching client data...");
+      
       // Fetch only regular clients (not admins or resellers)
       const { data: clientsData, error: clientsError } = await supabase
         .from("profiles")
@@ -125,7 +127,10 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
         .not("roles", "cs", "{reseller}")
         .order("created_at", { ascending: false });
 
-      if (clientsError) throw clientsError;
+      if (clientsError) {
+        console.error("Error fetching clients:", clientsError);
+        throw clientsError;
+      }
 
       // Fetch packages with bouquets
       const { data: packagesData, error: packagesError } = await supabase
@@ -134,7 +139,10 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
         .eq("active", true)
         .order("name", { ascending: true });
 
-      if (packagesError) throw packagesError;
+      if (packagesError) {
+        console.error("Error fetching packages:", packagesError);
+        throw packagesError;
+      }
 
       // Fetch bouquets
       const { data: bouquetsData, error: bouquetsError } = await supabase
@@ -142,7 +150,10 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
         .select("id, name, description, is_adult")
         .order("sort_order", { ascending: true });
 
-      if (bouquetsError) throw bouquetsError;
+      if (bouquetsError) {
+        console.error("Error fetching bouquets:", bouquetsError);
+        throw bouquetsError;
+      }
 
       // Fetch active subscriptions
       const { data: subscriptionsData, error: subscriptionsError } = await supabase
@@ -153,7 +164,17 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
         `)
         .eq("status", "active");
 
-      if (subscriptionsError) throw subscriptionsError;
+      if (subscriptionsError) {
+        console.error("Error fetching subscriptions:", subscriptionsError);
+        throw subscriptionsError;
+      }
+
+      console.log("Data fetched successfully:", {
+        clients: clientsData?.length,
+        packages: packagesData?.length,
+        bouquets: bouquetsData?.length,
+        subscriptions: subscriptionsData?.length
+      });
 
       setClients(clientsData || []);
       setPackages(packagesData || []);
@@ -721,7 +742,7 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="subscription">Subscriptions</TabsTrigger>
+              <TabsTrigger value="subscription">Package</TabsTrigger>
               <TabsTrigger value="bouquets">Bouquets</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
             </TabsList>
@@ -823,16 +844,16 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
             <TabsContent value="subscription" className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="package_id">Subscription Package</Label>
+                  <Label htmlFor="package_id">Package</Label>
                   <Select value={formData.package_id} onValueChange={(value) => setFormData({...formData, package_id: value})}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select subscription package" />
+                      <SelectValue placeholder="Select package" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No subscription package</SelectItem>
+                      <SelectItem value="">No package</SelectItem>
                       {packages.map(pkg => (
                         <SelectItem key={pkg.id} value={pkg.id}>
-                          {pkg.name} - ${pkg.price} ({pkg.duration_days} days)
+                          {pkg.name} - ${pkg.price || "Free"} ({pkg.duration_days} days)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -841,21 +862,32 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
                 
                 {formData.package_id && (
                   <div className="space-y-2">
-                    <Label htmlFor="subscription_days">Subscription Duration (days)</Label>
-                    <Input
-                      id="subscription_days"
-                      type="number"
-                      min="1"
-                      value={formData.subscription_days}
-                      onChange={(e) => setFormData({...formData, subscription_days: parseInt(e.target.value) || 30})}
-                    />
+                    <Label htmlFor="subscription_days">Package Duration</Label>
+                    <Select 
+                      value={formData.subscription_days.toString()} 
+                      onValueChange={(value) => setFormData({...formData, subscription_days: parseInt(value)})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">1 Month (30 days)</SelectItem>
+                        <SelectItem value="90">3 Months (90 days)</SelectItem>
+                        <SelectItem value="180">6 Months (180 days)</SelectItem>
+                        <SelectItem value="365">12 Months (365 days)</SelectItem>
+                        <SelectItem value="7">1 Week (7 days)</SelectItem>
+                        <SelectItem value="14">2 Weeks (14 days)</SelectItem>
+                        <SelectItem value="60">2 Months (60 days)</SelectItem>
+                        <SelectItem value="730">24 Months (730 days)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
               
               {editingClient && getClientSubscription(editingClient) && (
                 <div className="p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-2">Current Subscription</h4>
+                  <h4 className="font-medium mb-2">Current Package</h4>
                   <div className="text-sm text-muted-foreground">
                     <p>Package: {getClientSubscription(editingClient)?.package?.name}</p>
                     <p>Expires: {new Date(getClientSubscription(editingClient)!.end_date).toLocaleDateString()}</p>
