@@ -705,14 +705,14 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
               {editingClient ? "Edit Client" : "Create New Client"}
             </DialogTitle>
             <DialogDescription>
-              {editingClient ? "Update client information, packages, and bouquets" : "Create a new client account"}
+              {editingClient ? "Update client information, subscriptions, and bouquets" : "Create a new client with subscriptions and access settings"}
             </DialogDescription>
           </DialogHeader>
           
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="subscription">Package</TabsTrigger>
+              <TabsTrigger value="subscription">Subscriptions</TabsTrigger>
               <TabsTrigger value="bouquets">Bouquets</TabsTrigger>
               <TabsTrigger value="advanced">Advanced</TabsTrigger>
             </TabsList>
@@ -814,13 +814,13 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
             <TabsContent value="subscription" className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="package_id">Package</Label>
+                  <Label htmlFor="package_id">Subscription Package</Label>
                   <Select value={formData.package_id} onValueChange={(value) => setFormData({...formData, package_id: value})}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select package" />
+                      <SelectValue placeholder="Select subscription package" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No package</SelectItem>
+                      <SelectItem value="">No subscription package</SelectItem>
                       {packages.map(pkg => (
                         <SelectItem key={pkg.id} value={pkg.id}>
                           {pkg.name} - ${pkg.price} ({pkg.duration_days} days)
