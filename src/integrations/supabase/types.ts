@@ -475,6 +475,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "resellers_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "safe_profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       series: {
@@ -837,6 +844,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "user_activity_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "safe_profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
       user_connections: {
@@ -890,16 +904,87 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
+          {
+            foreignKeyName: "user_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "safe_profiles"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
     }
     Views: {
-      [_ in never]: never
+      safe_profiles: {
+        Row: {
+          country_code: string | null
+          created_at: string | null
+          credits: number | null
+          email: string | null
+          has_api_password: boolean | null
+          id: string | null
+          is_trial: boolean | null
+          max_connections: number | null
+          notes: string | null
+          roles: string[] | null
+          status: string | null
+          timezone: string | null
+          trial_expires_at: string | null
+          updated_at: string | null
+          user_id: string | null
+          username: string | null
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string | null
+          credits?: number | null
+          email?: string | null
+          has_api_password?: never
+          id?: string | null
+          is_trial?: boolean | null
+          max_connections?: number | null
+          notes?: string | null
+          roles?: string[] | null
+          status?: string | null
+          timezone?: string | null
+          trial_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string | null
+          credits?: number | null
+          email?: string | null
+          has_api_password?: never
+          id?: string | null
+          is_trial?: boolean | null
+          max_connections?: number | null
+          notes?: string | null
+          roles?: string[] | null
+          status?: string | null
+          timezone?: string | null
+          trial_expires_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       create_default_admin_if_none_exists: {
         Args: Record<PropertyKey, never>
         Returns: boolean
+      }
+      encrypt_sensitive_data: {
+        Args: { data: string }
+        Returns: string
+      }
+      generate_and_store_api_password: {
+        Args: { user_profile_id: string }
+        Returns: string
       }
       generate_api_password: {
         Args: Record<PropertyKey, never>
@@ -950,6 +1035,14 @@ export type Database = {
       }
       validate_server_access: {
         Args: { server_uuid: string }
+        Returns: boolean
+      }
+      verify_api_password: {
+        Args: { password_input: string; username_input: string }
+        Returns: boolean
+      }
+      verify_encrypted_data: {
+        Args: { data: string; encrypted_hash: string }
         Returns: boolean
       }
     }
