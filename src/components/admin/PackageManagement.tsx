@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,10 +7,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Plus, Pencil, Trash2, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Tv } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 
 interface PackageData {
   id: string;
@@ -23,6 +25,14 @@ interface PackageData {
   created_at: string;
   features?: any;
   bitrate_limits?: any;
+  bouquet_ids?: string[];
+}
+
+interface Bouquet {
+  id: string;
+  name: string;
+  description: string;
+  is_adult: boolean;
 }
 
 interface PackageManagementProps {
@@ -33,6 +43,7 @@ interface PackageManagementProps {
 export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagementProps) => {
   const [showDialog, setShowDialog] = useState(false);
   const [editingPackage, setEditingPackage] = useState<PackageData | null>(null);
+  const [bouquets, setBouquets] = useState<Bouquet[]>([]);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -41,10 +52,29 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
     concurrent_limit: "1",
     active: true,
     features: "",
-    max_bitrate: ""
+    max_bitrate: "",
+    bouquet_ids: [] as string[]
   });
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchBouquets();
+  }, []);
+
+  const fetchBouquets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("bouquets")
+        .select("id, name, description, is_adult")
+        .order("sort_order", { ascending: true });
+      
+      if (error) throw error;
+      setBouquets(data || []);
+    } catch (error) {
+      console.error("Error fetching bouquets:", error);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!formData.name) {
@@ -65,7 +95,8 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
         concurrent_limit: parseInt(formData.concurrent_limit) || 1,
         active: formData.active,
         features: formData.features ? { features: formData.features.split(',').map(f => f.trim()) } : {},
-        bitrate_limits: formData.max_bitrate ? { max_bitrate: formData.max_bitrate } : {}
+        bitrate_limits: formData.max_bitrate ? { max_bitrate: formData.max_bitrate } : {},
+        bouquet_ids: formData.bouquet_ids
       };
 
       if (editingPackage) {
@@ -105,7 +136,8 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
         concurrent_limit: "1",
         active: true,
         features: "",
-        max_bitrate: ""
+        max_bitrate: "",
+        bouquet_ids: []
       });
       onPackagesUpdate();
     } catch (error: any) {
@@ -127,7 +159,8 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
       concurrent_limit: pkg.concurrent_limit?.toString() || "1",
       active: pkg.active,
       features: pkg.features?.features ? pkg.features.features.join(', ') : "",
-      max_bitrate: pkg.bitrate_limits?.max_bitrate || ""
+      max_bitrate: pkg.bitrate_limits?.max_bitrate || "",
+      bouquet_ids: pkg.bouquet_ids || []
     });
     setShowDialog(true);
   };
@@ -167,7 +200,8 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
       concurrent_limit: "1",
       active: true,
       features: "",
-      max_bitrate: ""
+      max_bitrate: "",
+      bouquet_ids: []
     });
     setShowDialog(true);
   };
@@ -193,6 +227,7 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
                 <TableHead>Price</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Concurrent Streams</TableHead>
+                <TableHead>Bouquets</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -204,6 +239,15 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
                   <TableCell>${pkg.price || "Free"}</TableCell>
                   <TableCell>{pkg.duration_days} days</TableCell>
                   <TableCell>{pkg.concurrent_limit}</TableCell>
+                  <TableCell>
+                    {pkg.bouquet_ids && pkg.bouquet_ids.length > 0 ? (
+                      <Badge variant="secondary">
+                        {pkg.bouquet_ids.length} bouquet{pkg.bouquet_ids.length !== 1 ? 's' : ''}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">No bouquets</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <StatusBadge variant={pkg.active ? 'active' : 'inactive'}>
                       {pkg.active ? 'Active' : 'Inactive'}
@@ -327,6 +371,46 @@ export const PackageManagement = ({ packages, onPackagesUpdate }: PackageManagem
                 value={formData.features}
                 onChange={(e) => setFormData({...formData, features: e.target.value})}
               />
+            </div>
+            
+            <div className="col-span-2 space-y-2">
+              <Label>Included Bouquets</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-lg p-3">
+                {bouquets.map(bouquet => (
+                  <div key={bouquet.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`bouquet-${bouquet.id}`}
+                      checked={formData.bouquet_ids.includes(bouquet.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setFormData({
+                            ...formData,
+                            bouquet_ids: [...formData.bouquet_ids, bouquet.id]
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            bouquet_ids: formData.bouquet_ids.filter(id => id !== bouquet.id)
+                          });
+                        }
+                      }}
+                    />
+                    <Label 
+                      htmlFor={`bouquet-${bouquet.id}`} 
+                      className="text-sm flex items-center space-x-2 cursor-pointer"
+                    >
+                      <Tv className="w-4 h-4" />
+                      <span>{bouquet.name}</span>
+                      {bouquet.is_adult && (
+                        <Badge variant="secondary" className="text-xs">Adult</Badge>
+                      )}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Selected bouquets will be automatically assigned to clients who subscribe to this package.
+              </p>
             </div>
           </div>
 

@@ -52,6 +52,7 @@ interface Package {
   price: number;
   duration_days: number;
   active: boolean;
+  bouquet_ids?: string[];
 }
 
 interface Bouquet {
@@ -126,7 +127,7 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
 
       if (clientsError) throw clientsError;
 
-      // Fetch packages
+      // Fetch packages with bouquets
       const { data: packagesData, error: packagesError } = await supabase
         .from("packages")
         .select("*")
@@ -206,6 +207,14 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
         bouquet_ids: formData.bouquet_ids,
         api_password: editingClient?.api_password || generateApiPassword()
       };
+
+      // If package is selected, auto-assign its bouquets
+      if (formData.package_id) {
+        const selectedPackage = packages.find(p => p.id === formData.package_id);
+        if (selectedPackage?.bouquet_ids) {
+          profileData.bouquet_ids = selectedPackage.bouquet_ids;
+        }
+      }
 
       if (editingClient) {
         // Update existing client
@@ -857,53 +866,106 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
             </TabsContent>
             
             <TabsContent value="bouquets" className="space-y-4">
-              <div className="space-y-2">
-                <Label>Available Bouquets</Label>
-                <div className="max-h-64 overflow-y-auto border rounded-lg p-4 space-y-2">
-                  {bouquets.map(bouquet => (
-                    <div key={bouquet.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={formData.bouquet_ids.includes(bouquet.id)}
-                        onCheckedChange={(checked) => handleBouquetToggle(bouquet.id, checked as boolean)}
-                      />
-                      <div className="flex-1">
-                        <div className="font-medium">{bouquet.name}</div>
-                        {bouquet.description && (
-                          <div className="text-sm text-muted-foreground">{bouquet.description}</div>
-                        )}
-                      </div>
-                      {bouquet.is_adult && (
-                        <Badge variant="destructive" className="text-xs">Adult</Badge>
-                      )}
-                    </div>
-                  ))}
-                  {bouquets.length === 0 && (
-                    <div className="text-center text-muted-foreground py-4">
-                      No bouquets available
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <Label className="text-sm font-medium">Selected Bouquets Summary</Label>
-                <div className="mt-2 text-sm">
-                  {formData.bouquet_ids.length > 0 ? (
-                    <div className="space-y-1">
-                      {formData.bouquet_ids.map(id => {
-                        const bouquet = bouquets.find(b => b.id === id);
-                        return bouquet ? (
-                          <div key={id} className="flex items-center gap-2">
-                            <Badge variant="outline">{bouquet.name}</Badge>
-                            {bouquet.is_adult && <Badge variant="destructive" className="text-xs">Adult</Badge>}
+              <div className="space-y-4">
+                {formData.package_id ? (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-medium mb-2">Package Bouquets</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        The selected package includes these bouquets automatically:
+                      </p>
+                      {(() => {
+                        const selectedPackage = packages.find(p => p.id === formData.package_id);
+                        const packageBouquets = selectedPackage?.bouquet_ids 
+                          ? bouquets.filter(b => selectedPackage.bouquet_ids!.includes(b.id))
+                          : [];
+                        
+                        return packageBouquets.length > 0 ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {packageBouquets.map(bouquet => (
+                              <div key={bouquet.id} className="flex items-center space-x-2 p-2 bg-background rounded border">
+                                <Tv className="w-4 h-4 text-primary" />
+                                <span className="text-sm">{bouquet.name}</span>
+                                {bouquet.is_adult && (
+                                  <Badge variant="secondary" className="text-xs">Adult</Badge>
+                                )}
+                              </div>
+                            ))}
                           </div>
-                        ) : null;
-                      })}
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No bouquets included in this package</p>
+                        );
+                      })()}
                     </div>
-                  ) : (
-                    <span className="text-muted-foreground">No bouquets selected</span>
-                  )}
-                </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Additional Bouquets (Optional)</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Select additional bouquets beyond what's included in the package:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        {bouquets.filter(bouquet => {
+                          const selectedPackage = packages.find(p => p.id === formData.package_id);
+                          return !selectedPackage?.bouquet_ids?.includes(bouquet.id);
+                        }).map(bouquet => (
+                          <div key={bouquet.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`bouquet-${bouquet.id}`}
+                              checked={formData.bouquet_ids.includes(bouquet.id)}
+                              onCheckedChange={(checked) => handleBouquetToggle(bouquet.id, checked as boolean)}
+                            />
+                            <Label 
+                              htmlFor={`bouquet-${bouquet.id}`} 
+                              className="text-sm flex items-center space-x-2 cursor-pointer"
+                            >
+                              <Tv className="w-4 h-4" />
+                              <span>{bouquet.name}</span>
+                              {bouquet.is_adult && (
+                                <Badge variant="secondary" className="text-xs">Adult</Badge>
+                              )}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <Settings2 className="w-4 h-4 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">
+                          Select a subscription package first to see available bouquets, or manually assign bouquets below.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Manual Bouquet Selection</Label>
+                      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        {bouquets.map(bouquet => (
+                          <div key={bouquet.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`bouquet-${bouquet.id}`}
+                              checked={formData.bouquet_ids.includes(bouquet.id)}
+                              onCheckedChange={(checked) => handleBouquetToggle(bouquet.id, checked as boolean)}
+                            />
+                            <Label 
+                              htmlFor={`bouquet-${bouquet.id}`} 
+                              className="text-sm flex items-center space-x-2 cursor-pointer"
+                            >
+                              <Tv className="w-4 h-4" />
+                              <span>{bouquet.name}</span>
+                              {bouquet.is_adult && (
+                                <Badge variant="secondary" className="text-xs">Adult</Badge>
+                              )}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
             

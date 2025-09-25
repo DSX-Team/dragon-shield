@@ -257,6 +257,7 @@ export type Database = {
         Row: {
           active: boolean | null
           bitrate_limits: Json | null
+          bouquet_ids: string[] | null
           concurrent_limit: number | null
           created_at: string
           description: string | null
@@ -270,6 +271,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           bitrate_limits?: Json | null
+          bouquet_ids?: string[] | null
           concurrent_limit?: number | null
           created_at?: string
           description?: string | null
@@ -283,6 +285,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           bitrate_limits?: Json | null
+          bouquet_ids?: string[] | null
           concurrent_limit?: number | null
           created_at?: string
           description?: string | null
