@@ -18,6 +18,20 @@ Deno.serve(async (req) => {
     );
 
     const url = new URL(req.url);
+    const path = url.pathname;
+    
+    // Handle different endpoint formats
+    if (path.includes('/live/') && path.endsWith('.m3u8')) {
+      return handleStreamRequest(url, supabase);
+    }
+    
+    if (path.includes('/series/') || path.includes('/movie/')) {
+      return handleVodStreamRequest(url, supabase);
+    }
+    
+    if (path.includes('/xmltv.php')) {
+      return handleXmltvRequest(url, supabase);
+    }
     
     // Extract username and password from query params (standard Xtream Codes format)
     const username = url.searchParams.get('username');
@@ -151,8 +165,55 @@ Deno.serve(async (req) => {
         break;
 
       case 'get_vod_streams':
-        // VOD streams - placeholder for future implementation
-        output = [];
+        const vodCategoryId = url.searchParams.get('category_id');
+        // VOD streams - can be extended with actual VOD content
+        output = [
+          {
+            num: 1,
+            name: "Sample Movie",
+            stream_id: 1001,
+            stream_icon: "",
+            rating: "8.5",
+            genre: "Action",
+            plot: "Sample movie description",
+            cast: "Actor 1, Actor 2",
+            director: "Director Name",
+            releasedate: "2023-01-01",
+            last_modified: Math.floor(Date.now() / 1000).toString(),
+            category_id: vodCategoryId || "1",
+            container_extension: "mp4",
+            added: Math.floor(Date.now() / 1000).toString()
+          }
+        ];
+        break;
+
+      case 'get_series_categories':
+        // Series categories
+        output = [
+          { category_id: "1", category_name: "Drama", parent_id: 0 },
+          { category_id: "2", category_name: "Comedy", parent_id: 0 },
+          { category_id: "3", category_name: "Action", parent_id: 0 }
+        ];
+        break;
+
+      case 'get_series':
+        const seriesCategoryId = url.searchParams.get('category_id');
+        output = [
+          {
+            num: 1,
+            name: "Sample Series",
+            series_id: 2001,
+            cover: "",
+            plot: "Sample series description",
+            cast: "Actor 1, Actor 2",
+            director: "Director Name",
+            genre: "Drama",
+            releaseDate: "2023-01-01",
+            last_modified: Math.floor(Date.now() / 1000).toString(),
+            rating: "9.0",
+            category_id: seriesCategoryId || "1"
+          }
+        ];
         break;
 
       case 'get_short_epg':
@@ -272,3 +333,126 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+// Handle direct stream requests
+async function handleStreamRequest(url: URL, supabase: any) {
+  const username = url.searchParams.get('username');
+  const password = url.searchParams.get('password');
+  
+  if (!username || !password) {
+    return new Response('Authentication required', { status: 401 });
+  }
+  
+  // Extract stream ID from path like /live/12345.m3u8
+  const pathParts = url.pathname.split('/');
+  const streamFile = pathParts[pathParts.length - 1];
+  const streamId = streamFile.replace('.m3u8', '');
+  
+  // Find channel by converted stream ID
+  const { data: channels } = await supabase
+    .from('channels')
+    .select('id, name, upstream_sources')
+    .eq('active', true);
+    
+  const channel = channels?.find((c: any) => {
+    const convertedId = parseInt(c.id.replace(/-/g, '').substring(0, 8), 16);
+    return convertedId.toString() === streamId;
+  });
+  
+  if (!channel || !channel.upstream_sources?.[0]) {
+    return new Response('Stream not found', { status: 404 });
+  }
+  
+  // Return M3U8 playlist
+  const m3u8Content = `#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1920x1080
+${channel.upstream_sources[0].url}
+`;
+  
+  return new Response(m3u8Content, {
+    headers: { 
+      ...corsHeaders,
+      'Content-Type': 'application/vnd.apple.mpegurl',
+      'Cache-Control': 'no-cache'
+    }
+  });
+}
+
+// Handle VOD stream requests
+async function handleVodStreamRequest(url: URL, supabase: any) {
+  const username = url.searchParams.get('username');
+  const password = url.searchParams.get('password');
+  
+  if (!username || !password) {
+    return new Response('Authentication required', { status: 401 });
+  }
+  
+  // Return sample VOD stream
+  return new Response('Sample VOD stream not implemented', { status: 404 });
+}
+
+// Handle XMLTV EPG requests
+async function handleXmltvRequest(url: URL, supabase: any) {
+  const username = url.searchParams.get('username');
+  const password = url.searchParams.get('password');
+  
+  if (!username || !password) {
+    return new Response('Authentication required', { status: 401 });
+  }
+  
+  // Get EPG data from database
+  const { data: epgData } = await supabase
+    .from('epg')
+    .select(`
+      *,
+      channels (id, name, epg_id)
+    `)
+    .gte('end_time', new Date().toISOString())
+    .order('start_time');
+  
+  // Generate XMLTV format
+  let xmltv = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE tv SYSTEM "xmltv.dtd">
+<tv generator-info-name="Dragon Shield IPTV">
+`;
+  
+  // Add channel definitions
+  const { data: channels } = await supabase
+    .from('channels')
+    .select('id, name, epg_id')
+    .eq('active', true);
+    
+  for (const channel of channels || []) {
+    const channelId = channel.epg_id || channel.id;
+    xmltv += `  <channel id="${channelId}">
+    <display-name>${channel.name}</display-name>
+  </channel>
+`;
+  }
+  
+  // Add programme data
+  for (const epg of epgData || []) {
+    if (epg.channels?.epg_id) {
+      const startTime = new Date(epg.start_time).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      const stopTime = new Date(epg.end_time).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      
+      xmltv += `  <programme start="${startTime}" stop="${stopTime}" channel="${epg.channels.epg_id}">
+    <title>${epg.title}</title>
+    <desc>${epg.description || ''}</desc>
+    <category>${epg.category || ''}</category>
+  </programme>
+`;
+    }
+  }
+  
+  xmltv += '</tv>';
+  
+  return new Response(xmltv, {
+    headers: { 
+      ...corsHeaders,
+      'Content-Type': 'application/xml',
+      'Cache-Control': 'public, max-age=3600'
+    }
+  });
+}

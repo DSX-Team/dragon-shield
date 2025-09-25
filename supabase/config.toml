@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.player-api]
 verify_jwt = false
+
+[functions.get]
+verify_jwt = false
