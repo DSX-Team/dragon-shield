@@ -143,12 +143,12 @@ const Dashboard = () => {
             <div className="flex items-center gap-2">
               <Button 
                 onClick={downloadPlaylist}
-                variant="outline"
+                variant="default"
                 size="sm"
-                className="gap-2"
+                className="gap-2 bg-xtream-blue hover:bg-xtream-blue/90"
               >
                 <Download className="h-4 w-4" />
-                Download M3U
+                Download M3U Playlist
               </Button>
               {isAdmin && (
                 <Button onClick={() => navigate('/admin')}>

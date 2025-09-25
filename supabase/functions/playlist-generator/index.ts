@@ -132,11 +132,24 @@ Deno.serve(async (req) => {
         const groupTitle = channel.category || 'General';
         const logoUrl = channel.logo_url || '';
         
-        // Generate stream URL that goes through our stream-control function
-        const streamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.m3u8?username=${username}&password=${password}`;
+        // Generate different quality streams - both HLS and MPEGTS formats
+        const qualities = source.quality ? [source.quality] : ['HD', 'FHD'];
         
-        m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${channelName}" tvg-logo="${logoUrl}" group-title="${groupTitle}",${channelName}\n`;
-        m3uContent += `${streamUrl}\n`;
+        for (const quality of qualities) {
+          const qualityChannelName = `${channel.name} ${quality}`;
+          
+          // HLS stream URL
+          const hlsStreamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.m3u8?username=${username}&password=${password}&quality=${quality}&format=hls`;
+          
+          m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${qualityChannelName}" tvg-logo="${logoUrl}" group-title="${groupTitle}",${qualityChannelName}\n`;
+          m3uContent += `${hlsStreamUrl}\n`;
+          
+          // MPEGTS stream URL
+          const mpegtsStreamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.ts?username=${username}&password=${password}&quality=${quality}&format=mpegts`;
+          
+          m3uContent += `#EXTINF:-1 tvg-id="${tvgId}" tvg-name="${qualityChannelName} (MPEGTS)" tvg-logo="${logoUrl}" group-title="${groupTitle}",${qualityChannelName} (MPEGTS)\n`;
+          m3uContent += `${mpegtsStreamUrl}\n`;
+        }
       }
     }
 
