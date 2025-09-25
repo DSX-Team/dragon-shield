@@ -15,6 +15,7 @@ import { SubscriptionManagement } from "@/components/admin/SubscriptionManagemen
 import ServerManagement from "@/components/admin/ServerManagement";
 import VideoProcessing from "@/components/admin/VideoProcessing";
 import SettingsManagement from "@/components/admin/SettingsManagement";
+import { BouquetManagement } from "@/components/admin/BouquetManagement";
 
 interface Profile {
   id: string;
