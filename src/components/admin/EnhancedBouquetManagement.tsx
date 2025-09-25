@@ -427,9 +427,9 @@ export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagemen
                        contentType === 'series' ? formData.series_ids : formData.radio_ids;
 
     return (
-      <div className="space-y-4 max-h-96 overflow-y-auto">
+      <div className="space-y-4">
         {/* Filters */}
-        <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
           <div className="space-y-2">
             <Label>Category</Label>
             <Select 
@@ -498,6 +498,142 @@ export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagemen
           )}
           
           <div className="space-y-2">
+            <Label>Search</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={`Search ${contentType}...`}
+                value={filters[contentType].search}
+                onChange={(e) => setFilters(prev => ({
+                  ...prev,
+                  [contentType]: { ...prev[contentType], search: e.target.value }
+                }))}
+                className="pl-10"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Bulk Actions */}
+        <div className="flex gap-2 p-2 border rounded-lg bg-background">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              // Add all filtered items to bouquet
+              const itemIds = filteredContent.map(item => item.id);
+              const fieldName = contentType === 'channels' ? 'channel_ids' : 
+                               contentType === 'movies' ? 'movie_ids' :
+                               contentType === 'series' ? 'series_ids' : 'radio_ids';
+              
+              const newIds = [...new Set([...formData[fieldName], ...itemIds])];
+              setFormData({ ...formData, [fieldName]: newIds });
+            }}
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Add All ({filteredContent.length})
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              // Remove all filtered items from bouquet
+              const itemIds = filteredContent.map(item => item.id);
+              const fieldName = contentType === 'channels' ? 'channel_ids' : 
+                               contentType === 'movies' ? 'movie_ids' :
+                               contentType === 'series' ? 'series_ids' : 'radio_ids';
+              
+              const newIds = formData[fieldName].filter(id => !itemIds.includes(id));
+              setFormData({ ...formData, [fieldName]: newIds });
+            }}
+          >
+            <Filter className="w-3 h-3 mr-1" />
+            Remove All
+          </Button>
+          <div className="ml-auto text-sm text-muted-foreground flex items-center">
+            {selectedIds.length} / {filteredContent.length} selected
+          </div>
+        </div>
+
+        {/* Content Grid */}
+        <div className="max-h-96 overflow-y-auto border rounded-lg">
+          <div className="grid gap-2 p-4">
+            {filteredContent.map((item: any) => {
+              const isSelected = selectedIds.includes(item.id);
+              const displayName = contentType === 'series' ? item.title : item.name;
+              
+              return (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-colors ${
+                    isSelected ? 'bg-primary/10 border-primary' : 'bg-card hover:bg-muted/50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => handleContentToggle(item.id, contentType, e.target.checked)}
+                    className="rounded"
+                  />
+                  
+                  {(item.logo_url || item.poster_url) && (
+                    <img 
+                      src={item.logo_url || item.poster_url} 
+                      alt="" 
+                      className="w-10 h-10 rounded object-cover bg-muted"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{displayName}</div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {item.category}
+                      </Badge>
+                      {contentType === 'movies' && item.year && (
+                        <span className="text-xs">({item.year})</span>
+                      )}
+                      {contentType === 'series' && (
+                        <span className="text-xs">
+                          {item.seasons}S / {item.episodes}E
+                        </span>
+                      )}
+                      {contentType === 'radio' && item.frequency && (
+                        <span className="text-xs">{item.frequency}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {(item.rating || item.genre) && (
+                    <div className="text-right text-sm">
+                      {item.rating && (
+                        <div className="flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          <span>{item.rating}</span>
+                        </div>
+                      )}
+                      {item.genre && (
+                        <div className="text-xs text-muted-foreground">{item.genre}</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            
+            {filteredContent.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No {contentType} found matching current filters
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
             <Label>Search</Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
