@@ -315,6 +315,10 @@ const Admin = () => {
                   <Tv className="w-4 h-4 mr-2" />
                   Channels
                 </TabsTrigger>
+                <TabsTrigger value="bouquets" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                  <Package className="w-4 h-4 mr-2" />
+                  Bouquets
+                </TabsTrigger>
                 <TabsTrigger value="packages" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Package className="w-4 h-4 mr-2" />
                   Packages

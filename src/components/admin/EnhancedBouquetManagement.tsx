@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -20,16 +19,18 @@ import {
   Tv, 
   Film, 
   Radio, 
+  MonitorPlay,
   Copy,
   Search,
-  ArrowUpDown,
-  CheckCircle2,
-  Circle,
-  PlaySquare,
-  Eye
+  Filter,
+  Eye,
+  Star,
+  Calendar,
+  Globe
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
-interface Bouquet {
+interface EnhancedBouquet {
   id: string;
   name: string;
   description: string;
@@ -48,28 +49,32 @@ interface Channel {
   name: string;
   category: string;
   active: boolean;
+  logo_url?: string;
 }
 
 interface Movie {
   id: string;
   name: string;
   category: string;
-  year: number;
   genre: string;
+  year: number;
   rating: number;
   active: boolean;
+  poster_url?: string;
+  duration_minutes?: number;
 }
 
 interface Series {
   id: string;
   title: string;
   category: string;
-  year: number;
   genre: string;
-  rating: number;
+  year: number;
   seasons: number;
   episodes: number;
+  rating: number;
   active: boolean;
+  poster_url?: string;
 }
 
 interface RadioStation {
@@ -78,36 +83,34 @@ interface RadioStation {
   category: string;
   frequency: string;
   country: string;
+  language: string;
   active: boolean;
+  logo_url?: string;
 }
 
 interface ContentFilters {
-  channels: { category: string; search: string };
-  movies: { category: string; search: string };
-  series: { category: string; search: string };
-  radio: { category: string; search: string };
+  channels: { category: string; search: string; };
+  movies: { category: string; search: string; genre: string; };
+  series: { category: string; search: string; genre: string; };
+  radio: { category: string; search: string; country: string; };
 }
 
-export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void }) => {
-  // State management
-  const [bouquets, setBouquets] = useState<Bouquet[]>([]);
+interface EnhancedBouquetManagementProps {
+  onUpdate?: () => void;
+}
+
+export const EnhancedBouquetManagement = ({ onUpdate }: EnhancedBouquetManagementProps) => {
+  const [bouquets, setBouquets] = useState<EnhancedBouquet[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
   const [radioStations, setRadioStations] = useState<RadioStation[]>([]);
   
   const [showDialog, setShowDialog] = useState(false);
-  const [editingBouquet, setEditingBouquet] = useState<Bouquet | null>(null);
+  const [editingBouquet, setEditingBouquet] = useState<EnhancedBouquet | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
-
-  const [filters, setFilters] = useState<ContentFilters>({
-    channels: { category: "", search: "" },
-    movies: { category: "", search: "" },
-    series: { category: "", search: "" },
-    radio: { category: "", search: "" }
-  });
-
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -119,34 +122,14 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
     sort_order: 0
   });
 
+  const [filters, setFilters] = useState<ContentFilters>({
+    channels: { category: "", search: "" },
+    movies: { category: "", search: "", genre: "" },
+    series: { category: "", search: "", genre: "" },
+    radio: { category: "", search: "", country: "" }
+  });
+
   const { toast } = useToast();
-
-  // Computed categories for filtering
-  const categories = useMemo(() => ({
-    channels: [...new Set(channels.map(c => c.category).filter(Boolean))].sort(),
-    movies: [...new Set(movies.map(m => m.category).filter(Boolean))].sort(),
-    series: [...new Set(series.map(s => s.category).filter(Boolean))].sort(),
-    radio: [...new Set(radioStations.map(r => r.category).filter(Boolean))].sort(),
-  }), [channels, movies, series, radioStations]);
-
-  // Filtered content based on search and category
-  const filteredContent = useMemo(() => {
-    const filterContent = (items: any[], filter: { category: string; search: string }, nameField: string) => {
-      return items.filter(item => {
-        const matchesCategory = !filter.category || item.category === filter.category;
-        const matchesSearch = !filter.search || 
-          item[nameField].toLowerCase().includes(filter.search.toLowerCase());
-        return matchesCategory && matchesSearch;
-      });
-    };
-
-    return {
-      channels: filterContent(channels, filters.channels, 'name'),
-      movies: filterContent(movies, filters.movies, 'name'),
-      series: filterContent(series, filters.series, 'title'),
-      radio: filterContent(radioStations, filters.radio, 'name')
-    };
-  }, [channels, movies, series, radioStations, filters]);
 
   useEffect(() => {
     fetchAllData();
@@ -155,25 +138,44 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [bouquetsRes, channelsRes, moviesRes, seriesRes, radioRes] = await Promise.all([
-        supabase.from("bouquets").select("*").order("sort_order"),
-        supabase.from("channels").select("id, name, category, active").eq("active", true).order("name"),
-        supabase.from("movies").select("*").eq("active", true).order("name"),
-        supabase.from("series").select("*").eq("active", true).order("title"),
-        supabase.from("radio_stations").select("*").eq("active", true).order("name")
-      ]);
+      const { data: bouquetsData, error: bouquetsError } = await supabase
+        .from("bouquets")
+        .select("*")
+        .order("sort_order", { ascending: true });
 
-      if (bouquetsRes.error) throw bouquetsRes.error;
-      if (channelsRes.error) throw channelsRes.error;
-      if (moviesRes.error) throw moviesRes.error;
-      if (seriesRes.error) throw seriesRes.error;
-      if (radioRes.error) throw radioRes.error;
+      if (bouquetsError) throw bouquetsError;
 
-      setBouquets(bouquetsRes.data || []);
-      setChannels(channelsRes.data || []);
-      setMovies(moviesRes.data || []);
-      setSeries(seriesRes.data || []);
-      setRadioStations(radioRes.data || []);
+      const { data: channelsData, error: channelsError } = await supabase
+        .from("channels")
+        .select("id, name, category, active, logo_url")
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      if (channelsError) throw channelsError;
+
+      const { data: moviesData, error: moviesError } = await supabase
+        .from("movies")
+        .select("id, name, category, genre, year, rating, active, poster_url, duration_minutes")
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      const { data: seriesData, error: seriesError } = await supabase
+        .from("series")
+        .select("id, title, category, genre, year, seasons, episodes, rating, active, poster_url")
+        .eq("active", true)
+        .order("title", { ascending: true });
+
+      const { data: radioData, error: radioError } = await supabase
+        .from("radio_stations")
+        .select("id, name, category, frequency, country, language, active, logo_url")
+        .eq("active", true)
+        .order("name", { ascending: true });
+
+      setBouquets(bouquetsData || []);
+      setChannels(channelsData || []);
+      setMovies(moviesData || []);
+      setSeries(seriesData || []);
+      setRadioStations(radioData || []);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -189,7 +191,7 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Please enter a bouquet name",
         variant: "destructive"
       });
@@ -234,6 +236,7 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
       }
 
       setShowDialog(false);
+      setEditingBouquet(null);
       resetForm();
       fetchAllData();
       onUpdate?.();
@@ -258,10 +261,9 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
       sort_order: bouquets.length
     });
     setActiveTab("details");
-    setEditingBouquet(null);
   };
 
-  const handleEdit = (bouquet: Bouquet) => {
+  const handleEdit = (bouquet: EnhancedBouquet) => {
     setEditingBouquet(bouquet);
     setFormData({
       name: bouquet.name,
@@ -276,7 +278,7 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
     setShowDialog(true);
   };
 
-  const handleDuplicate = (bouquet: Bouquet) => {
+  const handleDuplicate = (bouquet: EnhancedBouquet) => {
     setEditingBouquet(null);
     setFormData({
       name: `${bouquet.name} - Copy`,
@@ -317,171 +319,312 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
     }
   };
 
-  const handleContentToggle = (contentType: 'channel_ids' | 'movie_ids' | 'series_ids' | 'radio_ids', id: string, checked: boolean) => {
-    const currentIds = formData[contentType];
+  const handleContentToggle = (contentId: string, contentType: 'channels' | 'movies' | 'series' | 'radio', checked: boolean) => {
+    const fieldName = contentType === 'channels' ? 'channel_ids' : 
+                      contentType === 'movies' ? 'movie_ids' :
+                      contentType === 'series' ? 'series_ids' : 'radio_ids';
+
     if (checked) {
       setFormData({
         ...formData,
-        [contentType]: [...currentIds, id]
+        [fieldName]: [...formData[fieldName], contentId]
       });
     } else {
       setFormData({
         ...formData,
-        [contentType]: currentIds.filter(existingId => existingId !== id)
+        [fieldName]: formData[fieldName].filter(id => id !== contentId)
       });
     }
   };
 
-  const handleFilterChange = (contentType: keyof ContentFilters, filterType: 'category' | 'search', value: string) => {
-    setFilters({
-      ...filters,
-      [contentType]: {
-        ...filters[contentType],
-        [filterType]: value
-      }
-    });
-  };
-
   const openAddDialog = () => {
+    setEditingBouquet(null);
     resetForm();
     setShowDialog(true);
   };
 
-  const getTotalContentCount = (bouquet: Bouquet) => {
-    return (bouquet.channel_ids?.length || 0) +
-           (bouquet.movie_ids?.length || 0) +
-           (bouquet.series_ids?.length || 0) +
-           (bouquet.radio_ids?.length || 0);
+  const getContentCounts = (bouquet: EnhancedBouquet) => {
+    return {
+      channels: bouquet.channel_ids?.length || 0,
+      movies: bouquet.movie_ids?.length || 0,
+      series: bouquet.series_ids?.length || 0,
+      radio: bouquet.radio_ids?.length || 0
+    };
   };
 
-  const renderContentSelectionTab = (
-    contentType: 'channels' | 'movies' | 'series' | 'radio',
-    items: any[],
-    selectedIds: string[],
-    nameField: string,
-    icon: React.ReactNode,
-    formField: 'channel_ids' | 'movie_ids' | 'series_ids' | 'radio_ids'
-  ) => (
-    <div className="space-y-6">
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-        <div className="space-y-2">
-          <Label>Category</Label>
-          <Select 
-            value={filters[contentType].category} 
-            onValueChange={(value) => handleFilterChange(contentType, 'category', value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="All Categories" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">All Categories</SelectItem>
-              {categories[contentType].map(category => (
-                <SelectItem key={category} value={category}>{category}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  const getTotalContent = (bouquet: EnhancedBouquet) => {
+    const counts = getContentCounts(bouquet);
+    return counts.channels + counts.movies + counts.series + counts.radio;
+  };
+
+  const getFilteredContent = (contentType: 'channels' | 'movies' | 'series' | 'radio') => {
+    switch (contentType) {
+      case 'channels':
+        return channels.filter(item => {
+          const categoryMatch = !filters.channels.category || item.category === filters.channels.category;
+          const searchMatch = !filters.channels.search || 
+            item.name.toLowerCase().includes(filters.channels.search.toLowerCase());
+          return categoryMatch && searchMatch;
+        });
+      case 'movies':
+        return movies.filter(item => {
+          const categoryMatch = !filters.movies.category || item.category === filters.movies.category;
+          const genreMatch = !filters.movies.genre || item.genre === filters.movies.genre;
+          const searchMatch = !filters.movies.search || 
+            item.name.toLowerCase().includes(filters.movies.search.toLowerCase());
+          return categoryMatch && genreMatch && searchMatch;
+        });
+      case 'series':
+        return series.filter(item => {
+          const categoryMatch = !filters.series.category || item.category === filters.series.category;
+          const genreMatch = !filters.series.genre || item.genre === filters.series.genre;
+          const searchMatch = !filters.series.search || 
+            item.title.toLowerCase().includes(filters.series.search.toLowerCase());
+          return categoryMatch && genreMatch && searchMatch;
+        });
+      case 'radio':
+        return radioStations.filter(item => {
+          const categoryMatch = !filters.radio.category || item.category === filters.radio.category;
+          const countryMatch = !filters.radio.country || item.country === filters.radio.country;
+          const searchMatch = !filters.radio.search || 
+            item.name.toLowerCase().includes(filters.radio.search.toLowerCase());
+          return categoryMatch && countryMatch && searchMatch;
+        });
+      default:
+        return [];
+    }
+  };
+
+  const getUniqueCategories = (contentType: 'channels' | 'movies' | 'series' | 'radio') => {
+    switch (contentType) {
+      case 'channels':
+        return [...new Set(channels.map(c => c.category).filter(Boolean))];
+      case 'movies':
+        return [...new Set(movies.map(m => m.category).filter(Boolean))];
+      case 'series':
+        return [...new Set(series.map(s => s.category).filter(Boolean))];
+      case 'radio':
+        return [...new Set(radioStations.map(r => r.category).filter(Boolean))];
+      default:
+        return [];
+    }
+  };
+
+  const getUniqueGenres = () => {
+    const movieGenres = movies.map(m => m.genre).filter(Boolean);
+    const seriesGenres = series.map(s => s.genre).filter(Boolean);
+    return [...new Set([...movieGenres, ...seriesGenres])];
+  };
+
+  const getUniqueCountries = () => {
+    return [...new Set(radioStations.map(r => r.country).filter(Boolean))];
+  };
+
+  const renderContentTab = (contentType: 'channels' | 'movies' | 'series' | 'radio') => {
+    const filteredContent = getFilteredContent(contentType);
+    const selectedIds = contentType === 'channels' ? formData.channel_ids :
+                       contentType === 'movies' ? formData.movie_ids :
+                       contentType === 'series' ? formData.series_ids : formData.radio_ids;
+
+    return (
+      <div className="space-y-4 max-h-96 overflow-y-auto">
+        {/* Filters */}
+        <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+          <div className="space-y-2">
+            <Label>Category</Label>
+            <Select 
+              value={filters[contentType].category} 
+              onValueChange={(value) => setFilters(prev => ({
+                ...prev,
+                [contentType]: { ...prev[contentType], category: value }
+              }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Categories</SelectItem>
+                {getUniqueCategories(contentType).map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {(contentType === 'movies' || contentType === 'series') && (
+            <div className="space-y-2">
+              <Label>Genre</Label>
+              <Select 
+                value={filters[contentType].genre} 
+                onValueChange={(value) => setFilters(prev => ({
+                  ...prev,
+                  [contentType]: { ...prev[contentType], genre: value }
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Genres" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Genres</SelectItem>
+                  {getUniqueGenres().map(genre => (
+                    <SelectItem key={genre} value={genre}>{genre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {contentType === 'radio' && (
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Select 
+                value={filters.radio.country} 
+                onValueChange={(value) => setFilters(prev => ({
+                  ...prev,
+                  radio: { ...prev.radio, country: value }
+                }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Countries" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Countries</SelectItem>
+                  {getUniqueCountries().map(country => (
+                    <SelectItem key={country} value={country}>{country}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          <div className="space-y-2">
+            <Label>Search</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder={`Search ${contentType}...`}
+                className="pl-10"
+                value={filters[contentType].search}
+                onChange={(e) => setFilters(prev => ({
+                  ...prev,
+                  [contentType]: { ...prev[contentType], search: e.target.value }
+                }))}
+              />
+            </div>
+          </div>
         </div>
+
+        {/* Content List */}
         <div className="space-y-2">
-          <Label>Search</Label>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder={`Search ${contentType}...`}
-              value={filters[contentType].search}
-              onChange={(e) => handleFilterChange(contentType, 'search', e.target.value)}
-              className="pl-8"
-            />
+          <div className="flex items-center justify-between">
+            <Label>Select {contentType === 'channels' ? 'Channels' : 
+                          contentType === 'movies' ? 'Movies' :
+                          contentType === 'series' ? 'Series' : 'Radio Stations'} 
+              ({selectedIds.length} selected)
+            </Label>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const allIds = filteredContent.map(item => item.id);
+                const allSelected = allIds.every(id => selectedIds.includes(id));
+                
+                if (allSelected) {
+                  // Deselect all visible
+                  setFormData(prev => ({
+                    ...prev,
+                    [contentType === 'channels' ? 'channel_ids' : 
+                     contentType === 'movies' ? 'movie_ids' :
+                     contentType === 'series' ? 'series_ids' : 'radio_ids']: 
+                     selectedIds.filter(id => !allIds.includes(id))
+                  }));
+                } else {
+                  // Select all visible
+                  const newIds = [...new Set([...selectedIds, ...allIds])];
+                  setFormData(prev => ({
+                    ...prev,
+                    [contentType === 'channels' ? 'channel_ids' : 
+                     contentType === 'movies' ? 'movie_ids' :
+                     contentType === 'series' ? 'series_ids' : 'radio_ids']: newIds
+                  }));
+                }
+              }}
+            >
+              Toggle Page
+            </Button>
+          </div>
+          
+          <div className="border rounded-md max-h-64 overflow-y-auto">
+            {filteredContent.map((item) => (
+              <div key={item.id} className="flex items-center space-x-3 p-3 border-b hover:bg-muted/50">
+                <Checkbox
+                  id={`${contentType}-${item.id}`}
+                  checked={selectedIds.includes(item.id)}
+                  onCheckedChange={(checked) => handleContentToggle(item.id, contentType, !!checked)}
+                />
+                
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">
+                      {contentType === 'series' ? (item as Series).title : 
+                       contentType === 'channels' ? (item as Channel).name :
+                       contentType === 'movies' ? (item as Movie).name :
+                       (item as RadioStation).name}
+                    </span>
+                    
+                    {(item as any).category && (
+                      <Badge variant="outline" className="text-xs">
+                        {(item as any).category}
+                      </Badge>
+                    )}
+                    
+                    {contentType === 'movies' && (item as Movie).rating && (
+                      <Badge variant="secondary" className="text-xs">
+                        <Star className="w-3 h-3 mr-1" />
+                        {(item as Movie).rating}
+                      </Badge>
+                    )}
+                    
+                    {contentType === 'series' && (
+                      <Badge variant="secondary" className="text-xs">
+                        S{(item as Series).seasons} E{(item as Series).episodes}
+                      </Badge>
+                    )}
+                    
+                    {contentType === 'radio' && (item as RadioStation).frequency && (
+                      <Badge variant="secondary" className="text-xs">
+                        {(item as RadioStation).frequency}
+                      </Badge>
+                    )}
+                    
+                    {(contentType === 'movies' || contentType === 'series') && (item as Movie | Series).year && (
+                      <Badge variant="outline" className="text-xs">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {(item as Movie | Series).year}
+                      </Badge>
+                    )}
+                    
+                    {contentType === 'radio' && (item as RadioStation).country && (
+                      <Badge variant="outline" className="text-xs">
+                        <Globe className="w-3 h-3 mr-1" />
+                        {(item as RadioStation).country}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {filteredContent.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No {contentType} found matching your filters.
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Content Selection */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">
-            Select {contentType.charAt(0).toUpperCase() + contentType.slice(1)} 
-            ({selectedIds.length} selected)
-          </Label>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const allIds = filteredContent[contentType].map((item: any) => item.id);
-              const allSelected = allIds.every(id => selectedIds.includes(id));
-              if (allSelected) {
-                setFormData({
-                  ...formData,
-                  [formField]: selectedIds.filter(id => !allIds.includes(id))
-                });
-              } else {
-                setFormData({
-                  ...formData,
-                  [formField]: [...new Set([...selectedIds, ...allIds])]
-                });
-              }
-            }}
-          >
-            Toggle Page
-          </Button>
-        </div>
-        
-        <div className="max-h-96 overflow-y-auto border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">Select</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Category</TableHead>
-                {contentType === 'movies' && <TableHead>Year</TableHead>}
-                {contentType === 'series' && <TableHead>Seasons/Episodes</TableHead>}
-                {contentType === 'radio' && <TableHead>Frequency</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredContent[contentType].map((item: any) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedIds.includes(item.id)}
-                      onCheckedChange={(checked) => 
-                        handleContentToggle(formField, item.id, !!checked)
-                      }
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {icon}
-                      {item[nameField]}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{item.category}</Badge>
-                  </TableCell>
-                  {contentType === 'movies' && (
-                    <TableCell>{item.year || 'N/A'}</TableCell>
-                  )}
-                  {contentType === 'series' && (
-                    <TableCell>{item.seasons || 0}S / {item.episodes || 0}E</TableCell>
-                  )}
-                  {contentType === 'radio' && (
-                    <TableCell>{item.frequency || 'N/A'}</TableCell>
-                  )}
-                </TableRow>
-              ))}
-              {filteredContent[contentType].length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    No {contentType} found matching the current filters.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
-    </div>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -495,16 +638,16 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
 
   return (
     <>
-      <Card>
+      <Card className="animate-fade-in-scale">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-xtream-blue to-xtream-navy bg-clip-text text-transparent">
+              <Package className="h-5 w-5 text-xtream-blue" />
               Enhanced Bouquet Management
             </CardTitle>
-            <CardDescription>Manage channel bouquets with movies, series, and radio stations</CardDescription>
+            <CardDescription>Manage comprehensive content bouquets with channels, movies, series and radio</CardDescription>
           </div>
-          <Button onClick={openAddDialog}>
+          <Button onClick={openAddDialog} className="bg-gradient-to-r from-xtream-blue to-xtream-navy hover:from-xtream-blue-light hover:to-xtream-navy shadow-lg hover:shadow-xl transition-all duration-300">
             <Plus className="w-4 h-4 mr-2" />
             Add Bouquet
           </Button>
@@ -516,105 +659,108 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
                 <TableHead>Order</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Tv className="h-4 w-4" />
-                    Channels
-                  </div>
-                </TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Film className="h-4 w-4" />
-                    Movies  
-                  </div>
-                </TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <PlaySquare className="h-4 w-4" />
-                    Series
-                  </div>
-                </TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Radio className="h-4 w-4" />
-                    Radio
-                  </div>
-                </TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Content Types</TableHead>
+                <TableHead>Classification</TableHead>
+                <TableHead>Total Items</TableHead>
+                <TableHead>Created</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bouquets.map((bouquet) => (
-                <TableRow key={bouquet.id}>
-                  <TableCell>
-                    <Badge variant="outline">{bouquet.sort_order}</Badge>
-                  </TableCell>
-                  <TableCell className="font-medium">{bouquet.name}</TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {bouquet.description || "No description"}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary">
-                      {bouquet.channel_ids?.length || 0}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary">
-                      {bouquet.movie_ids?.length || 0}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary">
-                      {bouquet.series_ids?.length || 0}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="secondary">
-                      {bouquet.radio_ids?.length || 0}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {bouquet.is_adult ? (
-                      <Badge variant="destructive">Adult</Badge>
-                    ) : (
-                      <Badge variant="default">General</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(bouquet)}
-                        title="Edit Bouquet"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleDuplicate(bouquet)}
-                        title="Duplicate Bouquet"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDelete(bouquet.id)}
-                        title="Delete Bouquet"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {bouquets.map((bouquet) => {
+                const counts = getContentCounts(bouquet);
+                const total = getTotalContent(bouquet);
+                return (
+                  <TableRow key={bouquet.id} className="hover:bg-muted/50 transition-colors">
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono">{bouquet.sort_order}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">{bouquet.name}</TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {bouquet.description || <span className="text-muted-foreground italic">No description</span>}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1 flex-wrap">
+                        {counts.channels > 0 && (
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
+                            <Tv className="w-3 h-3 mr-1" />
+                            {counts.channels}
+                          </Badge>
+                        )}
+                        {counts.movies > 0 && (
+                          <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                            <Film className="w-3 h-3 mr-1" />
+                            {counts.movies}
+                          </Badge>
+                        )}
+                        {counts.series > 0 && (
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
+                            <MonitorPlay className="w-3 h-3 mr-1" />
+                            {counts.series}
+                          </Badge>
+                        )}
+                        {counts.radio > 0 && (
+                          <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                            <Radio className="w-3 h-3 mr-1" />
+                            {counts.radio}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {bouquet.is_adult ? (
+                        <Badge variant="destructive">Adult</Badge>
+                      ) : (
+                        <Badge variant="secondary">General</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="bg-gradient-to-r from-xtream-blue to-xtream-navy text-white font-bold">
+                        {total}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(bouquet.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEdit(bouquet)}
+                          title="Edit bouquet"
+                          className="hover:bg-xtream-blue hover:text-white transition-colors"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDuplicate(bouquet)}
+                          title="Duplicate bouquet"
+                          className="hover:bg-xtream-orange hover:text-white transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(bouquet.id)}
+                          title="Delete bouquet"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
               {bouquets.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                    No bouquets found. Create your first bouquet to get started.
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-12">
+                    <Package className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p>No bouquets found.</p>
+                    <p className="text-sm">Create your first comprehensive bouquet to get started.</p>
                   </TableCell>
                 </TableRow>
               )}
@@ -623,247 +769,196 @@ export const EnhancedBouquetManagement = ({ onUpdate }: { onUpdate?: () => void 
         </CardContent>
       </Card>
 
-      {/* Enhanced Bouquet Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {editingBouquet ? <Pencil className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-              {editingBouquet ? "Edit Bouquet" : "Create New Bouquet"}
+              {editingBouquet ? <Pencil className="h-5 w-5 text-xtream-blue" /> : <Plus className="h-5 w-5 text-xtream-blue" />}
+              <span className="bg-gradient-to-r from-xtream-blue to-xtream-navy bg-clip-text text-transparent">
+                {editingBouquet ? "Edit Bouquet" : "Create New Bouquet"}
+              </span>
             </DialogTitle>
             <DialogDescription>
-              {editingBouquet ? "Update bouquet information and content selection" : "Create a new comprehensive bouquet with multiple content types"}
+              {editingBouquet ? "Update bouquet information and content selection" : "Create a comprehensive content bouquet with channels, movies, series and radio"}
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-6">
-              <TabsTrigger value="details">Details</TabsTrigger>
-              <TabsTrigger value="channels">Channels</TabsTrigger>
-              <TabsTrigger value="movies">Movies</TabsTrigger>
-              <TabsTrigger value="series">Series</TabsTrigger>
-              <TabsTrigger value="radio">Radio</TabsTrigger>
-              <TabsTrigger value="review">Review</TabsTrigger>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+            <TabsList className="grid w-full grid-cols-6 bg-muted/50">
+              <TabsTrigger value="details" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
+                <Package className="w-4 h-4" />
+                Details
+              </TabsTrigger>
+              <TabsTrigger value="channels" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
+                <Tv className="w-4 h-4" />
+                Channels ({formData.channel_ids.length})
+              </TabsTrigger>
+              <TabsTrigger value="movies" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
+                <Film className="w-4 h-4" />
+                Movies ({formData.movie_ids.length})
+              </TabsTrigger>
+              <TabsTrigger value="series" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
+                <MonitorPlay className="w-4 h-4" />
+                Series ({formData.series_ids.length})
+              </TabsTrigger>
+              <TabsTrigger value="radio" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-blue data-[state=active]:to-xtream-navy data-[state=active]:text-white">
+                <Radio className="w-4 h-4" />
+                Radio ({formData.radio_ids.length})
+              </TabsTrigger>
+              <TabsTrigger value="review" className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-xtream-orange data-[state=active]:to-accent data-[state=active]:text-white">
+                <Eye className="w-4 h-4" />
+                Review
+              </TabsTrigger>
             </TabsList>
 
-            <div className="flex-1 overflow-y-auto">
-              <TabsContent value="details" className="space-y-6 p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Bouquet Name *</Label>
-                    <Input
-                      id="name"
-                      placeholder="Premium Entertainment"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="sort-order">Sort Order</Label>
-                    <Input
-                      id="sort-order"
-                      type="number"
-                      min="0"
-                      value={formData.sort_order}
-                      onChange={(e) => setFormData({...formData, sort_order: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
-                </div>
-
+            <TabsContent value="details" className="space-y-6 p-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Premium entertainment package including channels, movies, series and radio stations..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    rows={4}
+                  <Label htmlFor="name">Bouquet Name *</Label>
+                  <Input
+                    id="name"
+                    placeholder="Premium Sports & Entertainment Package"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    className="bg-background/50 backdrop-blur-sm border-border/50 focus:bg-background/70 transition-all duration-300"
                   />
                 </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-adult"
-                    checked={formData.is_adult}
-                    onCheckedChange={(checked) => setFormData({...formData, is_adult: !!checked})}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="sort-order">Sort Order</Label>
+                  <Input
+                    id="sort-order"
+                    type="number"
+                    min="0"
+                    value={formData.sort_order}
+                    onChange={(e) => setFormData({...formData, sort_order: parseInt(e.target.value) || 0})}
+                    className="bg-background/50 backdrop-blur-sm border-border/50 focus:bg-background/70 transition-all duration-300"
                   />
-                  <Label htmlFor="is-adult">Adult Content Bouquet</Label>
                 </div>
-              </TabsContent>
+              </div>
 
-              <TabsContent value="channels" className="p-6">
-                {renderContentSelectionTab(
-                  'channels',
-                  filteredContent.channels,
-                  formData.channel_ids,
-                  'name',
-                  <Tv className="h-4 w-4" />,
-                  'channel_ids'
-                )}
-              </TabsContent>
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Comprehensive package including live TV channels, premium movies, popular series and radio stations..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  className="bg-background/50 backdrop-blur-sm border-border/50 focus:bg-background/70 transition-all duration-300 min-h-20"
+                />
+              </div>
 
-              <TabsContent value="movies" className="p-6">
-                {renderContentSelectionTab(
-                  'movies',
-                  filteredContent.movies,
-                  formData.movie_ids,
-                  'name',
-                  <Film className="h-4 w-4" />,
-                  'movie_ids'
-                )}
-              </TabsContent>
+              <div className="flex items-center space-x-3 p-4 bg-muted/30 rounded-lg border border-border/50">
+                <Checkbox
+                  id="is-adult"
+                  checked={formData.is_adult}
+                  onCheckedChange={(checked) => setFormData({...formData, is_adult: !!checked})}
+                />
+                <Label htmlFor="is-adult" className="text-sm font-medium">
+                  Adult Content Bouquet
+                  <span className="block text-xs text-muted-foreground">
+                    Mark this bouquet as containing adult or mature content
+                  </span>
+                </Label>
+              </div>
+            </TabsContent>
 
-              <TabsContent value="series" className="p-6">
-                {renderContentSelectionTab(
-                  'series',
-                  filteredContent.series,
-                  formData.series_ids,
-                  'title',
-                  <PlaySquare className="h-4 w-4" />,
-                  'series_ids'
-                )}
-              </TabsContent>
+            <TabsContent value="channels" className="p-6">
+              {renderContentTab('channels')}
+            </TabsContent>
 
-              <TabsContent value="radio" className="p-6">
-                {renderContentSelectionTab(
-                  'radio',
-                  filteredContent.radio,
-                  formData.radio_ids,
-                  'name',
-                  <Radio className="h-4 w-4" />,
-                  'radio_ids'
-                )}
-              </TabsContent>
+            <TabsContent value="movies" className="p-6">
+              {renderContentTab('movies')}
+            </TabsContent>
 
-              <TabsContent value="review" className="p-6">
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Bouquet Summary</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <Tv className="h-8 w-8 mx-auto mb-2 text-xtream-blue" />
-                        <div className="font-semibold">{formData.channel_ids.length}</div>
-                        <div className="text-sm text-muted-foreground">Channels</div>
-                      </div>
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <Film className="h-8 w-8 mx-auto mb-2 text-xtream-orange" />
-                        <div className="font-semibold">{formData.movie_ids.length}</div>
-                        <div className="text-sm text-muted-foreground">Movies</div>
-                      </div>
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <PlaySquare className="h-8 w-8 mx-auto mb-2 text-xtream-navy" />
-                        <div className="font-semibold">{formData.series_ids.length}</div>
-                        <div className="text-sm text-muted-foreground">Series</div>
-                      </div>
-                      <div className="text-center p-4 bg-muted/50 rounded-lg">
-                        <Radio className="h-8 w-8 mx-auto mb-2 text-success" />
-                        <div className="font-semibold">{formData.radio_ids.length}</div>
-                        <div className="text-sm text-muted-foreground">Radio</div>
-                      </div>
+            <TabsContent value="series" className="p-6">
+              {renderContentTab('series')}
+            </TabsContent>
+
+            <TabsContent value="radio" className="p-6">
+              {renderContentTab('radio')}
+            </TabsContent>
+
+            <TabsContent value="review" className="p-6 space-y-6">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">Bouquet Review</h3>
+                <p className="text-muted-foreground">Review all selected content for your bouquet</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tv className="w-4 h-4 text-blue-600" />
+                      <span className="font-medium text-blue-900">Live Channels ({formData.channel_ids.length})</span>
+                    </div>
+                    <div className="text-sm text-blue-700">
+                      {formData.channel_ids.length === 0 ? "No channels selected" : 
+                       `${formData.channel_ids.length} live TV channels selected`}
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <Label className="text-base font-semibold">Selected Content Preview</Label>
-                    <div className="max-h-64 overflow-y-auto border rounded-lg">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Category</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {/* Show selected channels */}
-                          {formData.channel_ids.map(id => {
-                            const item = channels.find(c => c.id === id);
-                            return item ? (
-                              <TableRow key={id}>
-                                <TableCell>
-                                  <Badge variant="outline" className="flex items-center gap-1">
-                                    <Tv className="h-3 w-3" />
-                                    Channel
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell>{item.category}</TableCell>
-                              </TableRow>
-                            ) : null;
-                          })}
-                          
-                          {/* Show selected movies */}
-                          {formData.movie_ids.map(id => {
-                            const item = movies.find(m => m.id === id);
-                            return item ? (
-                              <TableRow key={id}>
-                                <TableCell>
-                                  <Badge variant="outline" className="flex items-center gap-1">
-                                    <Film className="h-3 w-3" />
-                                    Movie
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell>{item.category}</TableCell>
-                              </TableRow>
-                            ) : null;
-                          })}
-
-                          {/* Show selected series */}
-                          {formData.series_ids.map(id => {
-                            const item = series.find(s => s.id === id);
-                            return item ? (
-                              <TableRow key={id}>
-                                <TableCell>
-                                  <Badge variant="outline" className="flex items-center gap-1">
-                                    <PlaySquare className="h-3 w-3" />
-                                    Series
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{item.title}</TableCell>
-                                <TableCell>{item.category}</TableCell>
-                              </TableRow>
-                            ) : null;
-                          })}
-
-                          {/* Show selected radio stations */}
-                          {formData.radio_ids.map(id => {
-                            const item = radioStations.find(r => r.id === id);
-                            return item ? (
-                              <TableRow key={id}>
-                                <TableCell>
-                                  <Badge variant="outline" className="flex items-center gap-1">
-                                    <Radio className="h-3 w-3" />
-                                    Radio
-                                  </Badge>
-                                </TableCell>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell>{item.category}</TableCell>
-                              </TableRow>
-                            ) : null;
-                          })}
-
-                          {(formData.channel_ids.length + formData.movie_ids.length + formData.series_ids.length + formData.radio_ids.length) === 0 && (
-                            <TableRow>
-                              <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                                No content selected. Use the previous tabs to add content to this bouquet.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Film className="w-4 h-4 text-purple-600" />
+                      <span className="font-medium text-purple-900">Movies ({formData.movie_ids.length})</span>
+                    </div>
+                    <div className="text-sm text-purple-700">
+                      {formData.movie_ids.length === 0 ? "No movies selected" : 
+                       `${formData.movie_ids.length} movies selected`}
                     </div>
                   </div>
                 </div>
-              </TabsContent>
-            </div>
+
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MonitorPlay className="w-4 h-4 text-green-600" />
+                      <span className="font-medium text-green-900">TV Series ({formData.series_ids.length})</span>
+                    </div>
+                    <div className="text-sm text-green-700">
+                      {formData.series_ids.length === 0 ? "No series selected" : 
+                       `${formData.series_ids.length} TV series selected`}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Radio className="w-4 h-4 text-orange-600" />
+                      <span className="font-medium text-orange-900">Radio Stations ({formData.radio_ids.length})</span>
+                    </div>
+                    <div className="text-sm text-orange-700">
+                      {formData.radio_ids.length === 0 ? "No radio stations selected" : 
+                       `${formData.radio_ids.length} radio stations selected`}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 bg-gradient-to-r from-xtream-blue/10 to-xtream-navy/10 rounded-lg border border-xtream-blue/20 text-center">
+                <div className="text-2xl font-bold text-xtream-navy mb-2">
+                  Total Content: {formData.channel_ids.length + formData.movie_ids.length + formData.series_ids.length + formData.radio_ids.length}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  This comprehensive bouquet will provide users with access to all selected content across multiple categories.
+                </div>
+              </div>
+            </TabsContent>
           </Tabs>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <DialogFooter className="flex gap-3 mt-6 pt-6 border-t">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDialog(false)}
+              className="hover:bg-muted/80 transition-colors"
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmit}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={!formData.name.trim()}
+              className="bg-gradient-to-r from-xtream-blue to-xtream-navy hover:from-xtream-blue-light hover:to-xtream-navy text-white shadow-lg hover:shadow-xl transition-all duration-300"
+            >
               {editingBouquet ? "Update" : "Create"} Bouquet
             </Button>
           </DialogFooter>
