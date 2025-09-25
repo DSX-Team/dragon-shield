@@ -8,7 +8,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Users, Tv, Package, CreditCard, Server, Video, Settings } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
-import { UserManagement } from "@/components/admin/UserManagement";
+import { EnhancedUserManagement } from "@/components/admin/EnhancedUserManagement";
 import { ChannelManagement } from "@/components/admin/ChannelManagement";
 import { PackageManagement } from "@/components/admin/PackageManagement";
 import { SubscriptionManagement } from "@/components/admin/SubscriptionManagement";
@@ -18,11 +18,29 @@ import SettingsManagement from "@/components/admin/SettingsManagement";
 
 interface Profile {
   id: string;
+  user_id: string;
   username: string;
   email: string;
   roles: string[];
   status: string;
   created_at: string;
+  max_connections: number;
+  allowed_ips: string[];
+  banned_ips: string[];
+  is_trial: boolean;
+  trial_expires_at: string | null;
+  notes: string;
+  last_ip: unknown;
+  total_bandwidth_used: number;
+  daily_bandwidth_limit: number;
+  user_agent: string;
+  country_code: string;
+  timezone: string;
+  reseller_id: string;
+  parent_id: string;
+  credits: number;
+  api_password: string;
+  bouquet_ids: string[];
 }
 
 interface Channel {
@@ -282,7 +300,7 @@ const Admin = () => {
 
             {/* Main Content Tabs */}
             <Tabs value={currentTab} onValueChange={setCurrentTab} className="space-y-4">
-              <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
+              <TabsList className="grid w-full grid-cols-8 lg:w-auto lg:grid-cols-none lg:flex bg-muted/50">
                 <TabsTrigger value="users" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                   <Users className="w-4 h-4 mr-2" />
                   Users
@@ -314,7 +332,7 @@ const Admin = () => {
               </TabsList>
 
               <TabsContent value="users">
-                <UserManagement users={users} onUsersUpdate={fetchAdminData} />
+                <EnhancedUserManagement users={users} onUsersUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="channels">
@@ -335,6 +353,10 @@ const Admin = () => {
 
               <TabsContent value="video">
                 <VideoProcessing />
+              </TabsContent>
+
+              <TabsContent value="bouquets">
+                <BouquetManagement onUpdate={fetchAdminData} />
               </TabsContent>
 
               <TabsContent value="settings">
