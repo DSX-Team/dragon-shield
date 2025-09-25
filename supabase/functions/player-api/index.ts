@@ -24,8 +24,11 @@ Deno.serve(async (req) => {
     const password = url.searchParams.get('password');
     const action = url.searchParams.get('action') || '';
 
-    console.log(`Xtream API request - Action: ${action}, User: ${username}`);
+    console.log(`Player API request - Action: ${action}, User: ${username}`);
 
+    // This is the main player_api.php endpoint that Xtream Codes uses
+    // It's identical to the xtream-api but with the traditional endpoint name
+    
     if (!username || !password) {
       return new Response(JSON.stringify({
         user_info: { auth: 0, message: "Authentication required" }
@@ -135,19 +138,26 @@ Deno.serve(async (req) => {
 
         const { data: channels } = await channelsQuery.order('name');
         
-        output = channels?.map((channel, index) => ({
-          num: index + 1,
-          name: channel.name,
-          stream_type: "live",
-          stream_id: parseInt(channel.id.replace(/-/g, '').substring(0, 8), 16), // Convert UUID to integer
-          stream_icon: channel.logo_url || "",
-          epg_channel_id: channel.epg_id || "",
-          added: Math.floor(new Date(channel.created_at).getTime() / 1000).toString(),
-          category_id: (uniqueLiveCategories.indexOf(channel.category) + 1).toString(),
-          tv_archive: 0,
-          direct_source: "",
-          tv_archive_duration: 0
-        })) || [];
+        // Convert channels to Xtream format with stream URLs
+        output = [];
+        for (const channel of channels || []) {
+          const streamId = parseInt(channel.id.replace(/-/g, '').substring(0, 8), 16);
+          const streamUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/stream-control/live/${channel.id}.m3u8?username=${username}&password=${password}`;
+          
+          output.push({
+            num: output.length + 1,
+            name: channel.name,
+            stream_type: "live",
+            stream_id: streamId,
+            stream_icon: channel.logo_url || "",
+            epg_channel_id: channel.epg_id || "",
+            added: Math.floor(new Date(channel.created_at).getTime() / 1000).toString(),
+            category_id: (uniqueLiveCategories.indexOf(channel.category) + 1).toString(),
+            tv_archive: 0,
+            direct_source: streamUrl,
+            tv_archive_duration: 0
+          });
+        }
         break;
 
       case 'get_vod_streams':
@@ -161,44 +171,30 @@ Deno.serve(async (req) => {
         const limit = parseInt(url.searchParams.get('limit') || '4');
 
         if (streamId) {
-          // Convert numeric stream_id back to UUID format for database lookup
-          const { data: channel } = await supabase
-            .from('channels')
-            .select('id')
-            .limit(1)
-            .single();
-
-          if (channel) {
-            const { data: epgData } = await supabase
-              .from('epg')
-              .select('*')
-              .eq('channel_id', channel.id)
-              .gte('end_time', new Date().toISOString())
-              .order('start_time')
-              .limit(limit);
-
-            const epgListings = epgData?.map((epg, index) => ({
-              id: epg.id,
-              epg_id: epg.program_id || "",
-              title: btoa(epg.title || ""),
+          // For now, return sample EPG data since we need to implement EPG properly
+          const epgListings = [
+            {
+              id: "1",
+              epg_id: streamId,
+              title: btoa("Current Program"),
               lang: "en",
-              description: btoa(epg.description || ""),
-              category: epg.category || "",
-              rating: epg.rating || "",
-              start_timestamp: Math.floor(new Date(epg.start_time).getTime() / 1000).toString(),
-              stop_timestamp: Math.floor(new Date(epg.end_time).getTime() / 1000).toString(),
-              start: epg.start_time,
-              end: epg.end_time,
+              description: btoa("Live streaming content"),
+              category: "General",
+              rating: "",
+              start_timestamp: Math.floor(Date.now() / 1000 - 3600).toString(),
+              stop_timestamp: Math.floor(Date.now() / 1000 + 3600).toString(),
+              start: new Date(Date.now() - 3600000).toISOString().slice(0, 19).replace('T', ' '),
+              end: new Date(Date.now() + 3600000).toISOString().slice(0, 19).replace('T', ' '),
               ...(action === 'get_simple_data_table' && {
-                now_playing: index === 0 ? 1 : 0,
+                now_playing: 1,
                 has_archive: 0
               })
-            })) || [];
+            }
+          ];
 
-            return new Response(JSON.stringify({ epg_listings: epgListings }), {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-            });
-          }
+          return new Response(JSON.stringify({ epg_listings: epgListings }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
         
         return new Response(JSON.stringify({ epg_listings: [] }), {
@@ -217,12 +213,16 @@ Deno.serve(async (req) => {
             cast: "Unknown",
             rating: "0",
             duration: "0",
-            releasedate: new Date().toISOString().split('T')[0]
+            releasedate: new Date().toISOString().split('T')[0],
+            movie_image: "",
+            plot: "Sample plot description"
           },
           movie_data: {
             stream_id: vodId || "0",
             name: "Sample Movie",
-            container_extension: "mp4"
+            container_extension: "mp4",
+            added: Math.floor(Date.now() / 1000).toString(),
+            category_id: "1"
           }
         };
         break;
@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Xtream API error:', error);
+    console.error('Player API error:', error);
     return new Response(JSON.stringify({
       user_info: { auth: 0, message: "Server error" }
     }), {
