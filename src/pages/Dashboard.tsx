@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Tv, Play, Package, Users, CreditCard, BarChart3, Activity } from "lucide-react";
+import { Tv, Play, Package, Users, CreditCard, BarChart3, Activity, Download } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { toast } from "sonner";
 
 interface Channel {
   id: string;
@@ -28,6 +29,7 @@ const Dashboard = () => {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,14 +40,19 @@ const Dashboard = () => {
         return;
       }
 
-      // Check if user is admin
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("roles")
-        .eq("user_id", session.user.id)
+      // Get user profile to check admin status
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('roles, username')
+        .eq('user_id', session.user.id)
         .single();
-      
-      setIsAdmin(profile?.roles?.includes("admin") || false);
+
+      if (profileData) {
+        setProfile(profileData);
+        if (profileData.roles?.includes('admin')) {
+          setIsAdmin(true);
+        }
+      }
 
       // Fetch channels
       const { data: channelsData } = await supabase
@@ -76,6 +83,39 @@ const Dashboard = () => {
     fetchData();
   }, [navigate]);
 
+  const downloadPlaylist = async () => {
+    if (!profile?.username) {
+      toast.error('Profile not loaded. Please try again.');
+      return;
+    }
+
+    try {
+      // For demo purposes, using a default password. In production, you'd want to implement proper password handling
+      const playlistUrl = `https://ccibslznriatjflaknso.supabase.co/functions/v1/playlist-generator/${profile.username}/demo123`;
+      
+      const response = await fetch(playlistUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to generate playlist: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${profile.username}_playlist.m3u`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Playlist downloaded successfully!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download playlist');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -100,8 +140,16 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground">Your IPTV service overview</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-muted-foreground">Welcome back!</span>
+            <div className="flex items-center gap-2">
+              <Button 
+                onClick={downloadPlaylist}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download M3U
+              </Button>
               {isAdmin && (
                 <Button onClick={() => navigate('/admin')}>
                   Admin Panel
