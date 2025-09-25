@@ -1033,6 +1033,10 @@ export type Database = {
           total_connections: number
         }[]
       }
+      log_admin_profile_access: {
+        Args: { access_type: string; admin_user_id: string; table_name: string }
+        Returns: boolean
+      }
       validate_server_access: {
         Args: { server_uuid: string }
         Returns: boolean
