@@ -65,32 +65,43 @@ const Player = () => {
       setChannel(channelData);
       setLoading(false);
 
-      // Generate stream URL
+      // Generate stream URL with proper authentication
       if (user) {
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("username")
+          .select("id, username, api_password")
           .eq("user_id", user.id)
           .single();
 
         if (profileData && profileData.username) {
-          // Use username for authentication - the backend will validate subscription
-          const url = `https://ccibslznriatjflaknso.functions.supabase.co/stream-control/live/${profileData.username}/${profileData.username}/${channelId}.m3u8`;
-          setStreamUrl(url);
-          console.log('Stream URL generated:', url);
+          // Check if user has API password, generate if not
+          let apiPassword = profileData.api_password;
+          if (!apiPassword) {
+            console.log('No API password found, generating new one...');
+            try {
+              const { data: newPassword, error: genError } = await supabase.rpc(
+                'generate_and_store_api_password', 
+                { user_profile_id: profileData.id }
+              );
+              if (genError) throw genError;
+              apiPassword = newPassword;
+            } catch (genErr) {
+              console.error('Failed to generate API password:', genErr);
+              setError('Failed to set up authentication. Please contact support.');
+              return;
+            }
+          }
+
+          // Use proper stream control endpoint with authentication
+          const streamUrl = `https://ccibslznriatjflaknso.supabase.co/functions/v1/stream-control/live/${channelId}.m3u8?username=${encodeURIComponent(profileData.username)}&password=${encodeURIComponent(apiPassword)}&quality=HD&format=hls`;
+          setStreamUrl(streamUrl);
+          console.log('Stream URL generated with proper auth');
           
-          // Add debugging for stream URL validation
-          console.log('Channel data:', channelData);
-          console.log('Profile data:', profileData);
-          console.log('User ID:', user.id);
-          console.log('Upstream sources:', channelData.upstream_sources);
-          
-          // Test the stream URL accessibility with full request
+          // Test the stream URL accessibility
           console.log('Testing stream URL accessibility...');
-          fetch(url)
+          fetch(streamUrl)
             .then(response => {
               console.log('Stream URL test response:', response.status, response.statusText);
-              console.log('Response headers:', Object.fromEntries(response.headers.entries()));
               if (response.ok) {
                 return response.text();
               } else {

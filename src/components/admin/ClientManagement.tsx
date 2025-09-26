@@ -481,46 +481,46 @@ export const ClientManagement = ({ onUpdate }: ClientManagementProps) => {
     }
   };
 
-  const handleDownloadM3U = async (client: Client) => {
-    if (!client.api_password) {
-      toast({
-        title: "Error",
-        description: "Client doesn't have an API password set",
-        variant: "destructive"
-      });
-      return;
-    }
+    const handleDownloadM3U = async (client: Client) => {
+      if (!client.api_password) {
+        toast({
+          title: "Error",
+          description: "Client doesn't have an API password set. Please generate one first.",
+          variant: "destructive"
+        });
+        return;
+      }
 
-    try {
-      const supabaseUrl = "https://ccibslznriatjflaknso.supabase.co";
-      const playlistUrl = `${supabaseUrl}/functions/v1/playlist-generator?username=${encodeURIComponent(client.username)}&password=${encodeURIComponent(client.api_password)}&format=both`;
-      
-      const response = await fetch(playlistUrl);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      try {
+        const supabaseUrl = "https://ccibslznriatjflaknso.supabase.co";
+        const playlistUrl = `${supabaseUrl}/functions/v1/playlist-generator?username=${encodeURIComponent(client.username)}&password=${encodeURIComponent(client.api_password)}&format=both`;
+        
+        const response = await fetch(playlistUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      const m3uContent = await response.text();
-      const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${client.username}_playlist.m3u`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+        const m3uContent = await response.text();
+        const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${client.username}_playlist.m3u`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
 
-      toast({
-        title: "Success",
-        description: `M3U playlist downloaded for ${client.username}`
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "Failed to download M3U playlist",
-        variant: "destructive"
-      });
-    }
-  };
+        toast({
+          title: "Success",
+          description: `M3U playlist downloaded for ${client.username}`
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: "Failed to download M3U playlist",
+          variant: "destructive"
+        });
+      }
+    };
 
   const handleBouquetToggle = (bouquetId: string, checked: boolean) => {
     if (checked) {

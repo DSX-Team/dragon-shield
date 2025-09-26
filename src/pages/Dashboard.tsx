@@ -90,8 +90,19 @@ const Dashboard = () => {
     }
 
     try {
-      // For demo purposes, using a default password. In production, you'd want to implement proper password handling
-      const playlistUrl = `https://ccibslznriatjflaknso.supabase.co/functions/v1/playlist-generator/${profile.username}/demo123`;
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("username, api_password")
+          .eq("username", profile.username)
+          .single();
+
+        let apiPassword = profileData?.api_password;
+        if (!apiPassword) {
+          toast.error('API password not set up. Contact administrator to generate credentials.');
+          return;
+        }
+
+      const playlistUrl = `https://ccibslznriatjflaknso.supabase.co/functions/v1/playlist-generator?username=${encodeURIComponent(profile.username)}&password=${encodeURIComponent(apiPassword)}&format=both`;
       
       const response = await fetch(playlistUrl);
       
